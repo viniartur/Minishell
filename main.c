@@ -6,7 +6,7 @@
 /*   By: vvieira <vvieira@student.42sp.org.br>      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/01/27 21:53:44 by vvieira           #+#    #+#             */
-/*   Updated: 2026/01/27 22:13:00 by vvieira          ###   ########.fr       */
+/*   Updated: 2026/01/27 22:31:21 by vvieira          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -55,5 +55,4 @@ int	main(int argc, char **argv, char **envp)
 	rl_clear_history();
 	return (0);
 }
-//compilar com cc -Wall -Wextra
-// -Werror main.c -lreadline -o minishell e para sair ctrl s
+// - para sair ctrl d
