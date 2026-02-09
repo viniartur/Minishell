@@ -1,0 +1,50 @@
+NAME		= test_lexer
+MINI		= minishell
+
+CC			= cc
+CFLAGS		= -Wall -Wextra -Werror -g
+RM			= rm -f
+
+INC_DIR		= includes
+
+# Configuração readline para Ubuntu/WSL
+RL_INC		= -I/usr/include/readline
+RL_LIB		= -lreadline
+
+# Arquivos do minishell (sem main.c)
+MINI_SRCS	= srcs/shell/shell.c \
+			  srcs/utils/utils.c \
+			  srcs/utils/prompt.c \
+			  srcs/parser/lexer.c \
+			  srcs/parser/lexer_utils.c
+
+# Arquivo de teste
+TEST_SRC	= test_lexer_only.c
+
+MINI_OBJS	= $(MINI_SRCS:.c=.o)
+TEST_OBJ	= $(TEST_SRC:.c=.o)
+
+all: $(NAME)
+
+$(NAME): $(MINI_OBJS) $(TEST_OBJ)
+	@echo "🔗 Linking $(NAME)..."
+	@$(CC) $(CFLAGS) $(MINI_OBJS) $(TEST_OBJ) -o $(NAME) $(RL_LIB)
+	@echo "✅ Test program compiled successfully!"
+	@echo ""
+	@echo "Execute com: ./$(NAME)"
+
+%.o: %.c
+	@echo "📦 Compiling $<..."
+	@$(CC) $(CFLAGS) $(RL_INC) -I$(INC_DIR) -c $< -o $@
+
+clean:
+	@echo "🧹 Cleaning object files..."
+	@$(RM) $(MINI_OBJS) $(TEST_OBJ)
+
+fclean: clean
+	@echo "🧹 Removing test executable..."
+	@$(RM) $(NAME)
+
+re: fclean all
+
+.PHONY: all clean fclean re
