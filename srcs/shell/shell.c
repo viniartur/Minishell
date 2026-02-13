@@ -1,0 +1,97 @@
+#include "minishell.h"
+
+void	init_shell(t_shell *shell, char **envp)
+{
+	shell->exit_status = EXIT_SUCCESS;
+	shell->tokens = NULL;
+	shell->env = NULL;
+	(void)envp;
+	g_signal = 0;
+}
+
+static int	is_builtin_exit(t_token *tokens)
+{
+	if (!tokens || tokens->type != TOKEN_WORD)
+		return (0);
+	if (ft_strcmp(tokens->value, "exit") == 0)
+		return (1);
+	return (0);
+}
+
+static void	process_command(t_shell *shell, char *input)
+{
+	if (!input || !*input)
+		return ;
+	shell->tokens = tokenize(input);
+	if (!shell->tokens)
+	{
+		shell->exit_status = 1;
+		return ;
+	}
+	if (is_builtin_exit(shell->tokens))
+	{
+		shell->exit_status = 0;
+		free_tokens(shell->tokens);
+		shell->tokens = NULL;
+		return ;
+	}
+	free_tokens(shell->tokens);
+	shell->tokens = NULL;
+}
+
+void	handle_input(t_shell *shell, char *input)
+{
+	if (!input || !*input)
+		return ;
+	process_command(shell, input);
+}
+
+static int	should_exit(t_shell *shell)
+{
+	if (shell->exit_status == 0 && shell->tokens == NULL)
+		return (1);
+	return (0);
+}
+
+void	main_loop(t_shell *shell)
+{
+	char	*input;
+
+	while (1)
+	{
+		input = get_user_input();
+		if (input == NULL)
+		{
+			write(STDOUT_FILENO, "exit\n", 5);
+			break ;
+		}
+		if (*input)
+			add_to_history(input);
+		handle_input(shell, input);
+		if (should_exit(shell))
+		{
+			free(input);
+			break ;
+		}
+		free(input);
+	}
+}
+
+void	cleanup_shell(t_shell *shell)
+{
+	int	i;
+
+	if (shell->tokens)
+		free_tokens(shell->tokens);
+	if (shell->env)
+	{
+		i = 0;
+		while (shell->env[i])
+		{
+			free(shell->env[i]);
+			i++;
+		}
+		free(shell->env);
+	}
+	rl_clear_history();
+}
