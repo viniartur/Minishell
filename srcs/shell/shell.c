@@ -16,7 +16,7 @@ static int	is_builtin_exit(t_token *tokens)
 		return (1);
 	return (0);
 }
-
+/*
 static void	process_command(t_shell *shell, char *input)
 {
 	if (!input || !*input)
@@ -37,8 +37,8 @@ static void	process_command(t_shell *shell, char *input)
 	free_tokens(shell->tokens);
 	shell->tokens = NULL;
 }
+*/
 
-/*
 static void	process_command(t_shell *shell, char *input)
 {
 	char	*path;
@@ -46,28 +46,36 @@ static void	process_command(t_shell *shell, char *input)
 	if (!input || !*input)
 		return ;
 	shell->tokens = tokenize(input);
-	if (!shell->tokens)
+	if (!shell->tokens || shell->tokens->type == TOKEN_EOF)
+	{
+		if (shell->tokens)
+			free_tokens(shell->tokens);
 		return ;
-	
-	// TESTE DO MOTOR:
-	// Se o primeiro token for uma palavra, tentamos achar o path dela
+	}
+	// 1. Mantemos o uso da função para o Makefile não dar erro
+	if (is_builtin_exit(shell->tokens))
+	{
+		shell->exit_status = 0;
+		free_tokens(shell->tokens);
+		shell->tokens = NULL;
+		return ;
+	}
+	// 2. TESTE DO MOTOR
 	if (shell->tokens->type == TOKEN_WORD)
 	{
 		path = get_command_path(shell->tokens->value, shell->env);
 		if (path)
 		{
 			printf("Motor encontrou o caminho: %s\n", path);
-			free(path); // O motor aloca memória com strdup/strjoin, precisa de free!
+			free(path); // Limpeza de memória obrigatória
 		}
 		else
-			printf("Motor: comando '%s' não encontrado no PATH\n", shell->tokens->value);
+			printf("minishell: command not found: %s\n", shell->tokens->value);
 	}
-
-	// ... resto do código (free_tokens, etc)
 	free_tokens(shell->tokens);
 	shell->tokens = NULL;
 }
-*/
+
 
 void	handle_input(t_shell *shell, char *input)
 {
