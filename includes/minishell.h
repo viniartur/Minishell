@@ -102,4 +102,12 @@ int		ft_strncmp(const char *s1, const char *s2, size_t n);
 char	*ft_strchr(const char *s, int c);
 int		ft_isspace(int c);
 
+/* utils.c - Novas funções */
+char	**ft_copy_env(char **envp);
+char	*ft_strjoin(char const *s1, char const *s2);
+char	**ft_split(char const *s, char c);
+
+/* motor / executor_utils.c */
+char	*get_command_path(char *cmd, char **env);
+
 #endif

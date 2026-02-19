@@ -13,6 +13,7 @@ RL_LIB		= -lreadline
 # Arquivos fonte
 SRCS		= main.c \
 			  srcs/shell/shell.c \
+			  srcs/shell/executor_utils.c \
 			  srcs/utils/utils.c \
 			  srcs/utils/prompt.c \
 			  srcs/parser/lexer.c \

@@ -4,8 +4,7 @@ void	init_shell(t_shell *shell, char **envp)
 {
 	shell->exit_status = EXIT_SUCCESS;
 	shell->tokens = NULL;
-	shell->env = NULL;
-	(void)envp;
+	shell->env = ft_copy_env(envp);
 	g_signal = 0;
 }
 
@@ -38,6 +37,37 @@ static void	process_command(t_shell *shell, char *input)
 	free_tokens(shell->tokens);
 	shell->tokens = NULL;
 }
+
+/*
+static void	process_command(t_shell *shell, char *input)
+{
+	char	*path;
+
+	if (!input || !*input)
+		return ;
+	shell->tokens = tokenize(input);
+	if (!shell->tokens)
+		return ;
+	
+	// TESTE DO MOTOR:
+	// Se o primeiro token for uma palavra, tentamos achar o path dela
+	if (shell->tokens->type == TOKEN_WORD)
+	{
+		path = get_command_path(shell->tokens->value, shell->env);
+		if (path)
+		{
+			printf("Motor encontrou o caminho: %s\n", path);
+			free(path); // O motor aloca memória com strdup/strjoin, precisa de free!
+		}
+		else
+			printf("Motor: comando '%s' não encontrado no PATH\n", shell->tokens->value);
+	}
+
+	// ... resto do código (free_tokens, etc)
+	free_tokens(shell->tokens);
+	shell->tokens = NULL;
+}
+*/
 
 void	handle_input(t_shell *shell, char *input)
 {
@@ -92,6 +122,7 @@ void	cleanup_shell(t_shell *shell)
 			i++;
 		}
 		free(shell->env);
+		shell->env = NULL;
 	}
 	rl_clear_history();
 }
