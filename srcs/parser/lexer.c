@@ -1,10 +1,17 @@
 #include "minishell.h"
 
 static void		handle_quotes(t_lexer *lexer);
-static int		handle_operator(t_lexer *l, t_token **tks, t_token **last);
-static int		handle_word(t_lexer *lexer, t_token **tks, t_token **last);
-static int		add_token(t_token **tks, t_token **last,
-					t_token_type type, const char *val, int len);
+static int		handle_dollar(t_lexer *lexer, t_token **tokens, t_token **last);
+static int		handle_redirection(t_lexer *lexer, t_token **tokens, t_token **last);
+static int		handle_pipe(t_lexer *lexer, t_token **tokens, t_token **last);
+static int		handle_word(t_lexer *lexer, t_token **tokens, t_token **last);
+static int		handle_semicolon(t_lexer *lexer, t_token **tokens, t_token **last);
+static int		handle_ampersand(t_lexer *lexer, t_token **tokens, t_token **last);
+static int		handle_assign(t_lexer *lexer, t_token **tokens, t_token **last);
+static void		add_token_to_list(t_token **tokens, t_token **last, t_token *new_token);
+static int		create_and_add_token(t_token **tokens, t_token **last,
+					t_token_type type, const char *value, int len);
+static int		finalize_tokens(t_lexer *lexer, t_token **tokens, t_token **last);
 
 static void	handle_quotes(t_lexer *lexer)
 {
@@ -26,101 +33,162 @@ static void	handle_quotes(t_lexer *lexer)
 		advance_lexer(lexer);
 }
 
-static t_token_type	get_redir_type(t_lexer *lexer, int *len)
+static int	handle_dollar(t_lexer *lexer, t_token **tokens, t_token **last)
 {
-	if (lexer->current == '<')
-	{
-		if (peek_lexer(lexer, 1) == '<')
-		{
-			*len = 2;
-			return (TOKEN_HEREDOC);
-		}
-		*len = 1;
-		return (TOKEN_REDIR_IN);
-	}
-	if (peek_lexer(lexer, 1) == '>')
-	{
-		*len = 2;
-		return (TOKEN_APPEND);
-	}
-	*len = 1;
-	return (TOKEN_REDIR_OUT);
+	if (create_and_add_token(tokens, last, TOKEN_DOLLAR, NULL, 1) == LEXER_ERROR)
+		return (LEXER_ERROR);
+	advance_lexer(lexer);
+	lexer->start = lexer->pos;
+	return (LEXER_SUCCESS);
 }
 
-static int	handle_operator(t_lexer *lexer, t_token **tokens, t_token **last)
+static int	handle_redirection(t_lexer *lexer, t_token **tokens, t_token **last)
 {
 	t_token_type	type;
 	int				len;
 
-	len = 1;
-	if (lexer->current == '|')
-		type = TOKEN_PIPE;
-	else if (lexer->current == '$')
-		type = TOKEN_DOLLAR;
+	if (lexer->current == '<')
+	{
+		if (peek_lexer(lexer, 1) == '<')
+		{
+			type = TOKEN_HEREDOC;
+			len = 2;
+		}
+		else
+		{
+			type = TOKEN_REDIR_IN;
+			len = 1;
+		}
+	}
 	else
-		type = get_redir_type(lexer, &len);
-	if (add_token(tokens, last, type, NULL, len) == LEXER_ERROR)
+	{
+		if (peek_lexer(lexer, 1) == '>')
+		{
+			type = TOKEN_APPEND;
+			len = 2;
+		}
+		else
+		{
+			type = TOKEN_REDIR_OUT;
+			len = 1;
+		}
+	}
+	if (create_and_add_token(tokens, last, type, NULL, len) == LEXER_ERROR)
 		return (LEXER_ERROR);
-	while (len--)
+	advance_lexer(lexer);
+	if (len == 2)
 		advance_lexer(lexer);
 	lexer->start = lexer->pos;
 	return (LEXER_SUCCESS);
 }
 
-static int is_word_end(t_lexer *lexer)
+static int	handle_pipe(t_lexer *lexer, t_token **tokens, t_token **last)
 {
-	if (lexer->in_quote != 0)
-		return (0);
-	if (lexer->current == '\0' || ft_isspace(lexer->current))
+	if (create_and_add_token(tokens, last, TOKEN_PIPE, NULL, 1) == LEXER_ERROR)
+		return (LEXER_ERROR);
+	advance_lexer(lexer);
+	lexer->start = lexer->pos;
+	return (LEXER_SUCCESS);
+}
+
+static int	is_literal_quote(t_lexer *lexer)
+{
+	if (lexer->in_quote == 1 && lexer->current == '"')
 		return (1);
-	if (lexer->current == '|' || lexer->current == '<'
-		|| lexer->current == '>' || lexer->current == '$')
+	if (lexer->in_quote == 2 && lexer->current == '\'')
 		return (1);
 	return (0);
 }
 
 static int	handle_word(t_lexer *lexer, t_token **tokens, t_token **last)
 {
-	int	start;
+    char    *buf;
+    int     len;
+    int     result;
 
-	start = lexer->pos;
-	while (lexer->current != '\0')
-	{
-		if (lexer->current == '\'' || lexer->current == '"')
-		{
-			handle_quotes(lexer);
-			continue ;
-		}
-		if (lexer->in_quote == 0 && is_word_end(lexer))
-			break ;
-		advance_lexer(lexer);
-	}
-	if (lexer->pos > start)
-	{
-		if (add_token(tokens, last, TOKEN_WORD,
-				&lexer->input[start], lexer->pos - start) == LEXER_ERROR)
-			return (LEXER_ERROR);
-	}
+    buf = malloc(lexer->input_len + 1); // máximo possível é o input inteiro
+    if (!buf)
+        return (LEXER_ERROR);
+    len = 0;
+    while (lexer->current != '\0')
+    {
+        if (lexer->current == '\'' || lexer->current == '"')
+        {
+            if (is_literal_quote(lexer))
+            {
+                buf[len++] = lexer->current;
+                advance_lexer(lexer);
+            }
+            else
+                handle_quotes(lexer);
+            continue ;
+        }
+        if (lexer->in_quote != 0)
+        {
+            buf[len++] = lexer->current;
+            advance_lexer(lexer);
+            continue ;
+        }
+        if (is_whitespace(lexer->current) ||
+            lexer->current == '|' || lexer->current == '<' ||
+            lexer->current == '>' || lexer->current == '$' ||
+            lexer->current == ';' || lexer->current == '&' ||
+            lexer->current == '=' || lexer->current == '\0')
+            break ;
+        buf[len++] = lexer->current;
+        advance_lexer(lexer);
+    }
+    buf[len] = '\0';
+    if (len > 0)
+        result = create_and_add_token(tokens, last, TOKEN_WORD, buf, len);
+    else
+        result = LEXER_SUCCESS;
+    free(buf);
+    return (result);
+}
+
+static int	handle_semicolon(t_lexer *lexer, t_token **tokens, t_token **last)
+{
+	if (create_and_add_token(tokens, last, TOKEN_SEMICOLON, NULL, 1) == LEXER_ERROR)
+		return (LEXER_ERROR);
+	advance_lexer(lexer);
 	return (LEXER_SUCCESS);
 }
 
-static void	add_to_list(t_token **tokens, t_token **last, t_token *new)
+
+static int	handle_ampersand(t_lexer *lexer, t_token **tokens, t_token **last)
 {
-	if (!new)
+	if (create_and_add_token(tokens, last, TOKEN_AMPERSAND, NULL, 1) == LEXER_ERROR)
+		return (LEXER_ERROR);
+	advance_lexer(lexer);
+	return (LEXER_SUCCESS);
+}
+
+static int	handle_assign(t_lexer *lexer, t_token **tokens, t_token **last)
+{
+	if (create_and_add_token(tokens, last, TOKEN_ASSIGN, NULL, 1) == LEXER_ERROR)
+		return (LEXER_ERROR);
+	advance_lexer(lexer);
+	return (LEXER_SUCCESS);
+}
+
+static void	add_token_to_list(t_token **tokens, t_token **last, t_token *new_token)
+{
+	if (!new_token)
 		return ;
 	if (!*tokens)
 	{
-		*tokens = new;
-		*last = new;
+		*tokens = new_token;
+		*last = new_token;
 	}
 	else
 	{
-		(*last)->next = new;
-		*last = new;
+		(*last)->next = new_token;
+		*last = new_token;
 	}
 }
 
-static int	add_token(t_token **tokens, t_token **last,
+static int	create_and_add_token(t_token **tokens, t_token **last,
 				t_token_type type, const char *value, int len)
 {
 	t_token	*new_token;
@@ -128,25 +196,8 @@ static int	add_token(t_token **tokens, t_token **last,
 	new_token = create_token(type, value, len);
 	if (!new_token)
 		return (LEXER_ERROR);
-	add_to_list(tokens, last, new_token);
+	add_token_to_list(tokens, last, new_token);
 	return (LEXER_SUCCESS);
-}
-
-static int	is_operator(char c)
-{
-	return (c == '|' || c == '<' || c == '>' || c == '$');
-}
-
-static int	process_token(t_lexer *lexer, t_token **tokens, t_token **last)
-{
-	if (lexer->current == '\'' || lexer->current == '"')
-	{
-		handle_quotes(lexer);
-		return (LEXER_SUCCESS);
-	}
-	if (is_operator(lexer->current))
-		return (handle_operator(lexer, tokens, last));
-	return (handle_word(lexer, tokens, last));
 }
 
 static int	finalize_tokens(t_lexer *lexer, t_token **tokens, t_token **last)
@@ -156,7 +207,7 @@ static int	finalize_tokens(t_lexer *lexer, t_token **tokens, t_token **last)
 		write(STDERR_FILENO, "minishell: syntax error: unclosed quote\n", 41);
 		return (LEXER_ERROR);
 	}
-	if (add_token(tokens, last, TOKEN_EOF, NULL, 0) == LEXER_ERROR)
+	if (create_and_add_token(tokens, last, TOKEN_EOF, NULL, 0) == LEXER_ERROR)
 		return (LEXER_ERROR);
 	return (LEXER_SUCCESS);
 }
@@ -180,11 +231,23 @@ t_token	*tokenize(const char *input)
 		skip_whitespace(lexer);
 		if (lexer->current == '\0')
 			break ;
-		if (process_token(lexer, &tokens, &last) == LEXER_ERROR)
-			lexer->error = TRUE;
+		if (lexer->current == '|')
+			lexer->error = (handle_pipe(lexer, &tokens, &last) == LEXER_ERROR);
+		else if (lexer->current == '<' || lexer->current == '>')
+			lexer->error = (handle_redirection(lexer, &tokens, &last) == LEXER_ERROR);
+		else if (lexer->current == '$')
+			lexer->error = (handle_dollar(lexer, &tokens, &last) == LEXER_ERROR);
+		else if (lexer->current == ';')
+			lexer->error = (handle_semicolon(lexer, &tokens, &last) == LEXER_ERROR);
+		else if (lexer->current == '&')
+			lexer->error = (handle_ampersand(lexer, &tokens, &last) == LEXER_ERROR);
+		else if (lexer->current == '=')
+			lexer->error = (handle_assign(lexer, &tokens, &last) == LEXER_ERROR);
+		else
+			lexer->error = (handle_word(lexer, &tokens, &last) == LEXER_ERROR);
 	}
-	if (!lexer->error && finalize_tokens(lexer, &tokens, &last) == LEXER_ERROR)
-		lexer->error = TRUE;
+	if (!lexer->error)
+		lexer->error = (finalize_tokens(lexer, &tokens, &last) == LEXER_ERROR);
 	has_error = lexer->error;
 	free(lexer);
 	if (has_error)
@@ -208,26 +271,30 @@ void	free_tokens(t_token *tokens)
 	}
 }
 
-static const char	*get_token_name(t_token_type type)
+/*
+ * Imprime a lista de tokens — útil para debug.
+ * Formato: [TIPO: 'valor']
+ */
+void	print_tokens(t_token *tokens)
 {
 	static const char	*names[] = {
 		"EOF", "ERROR", "PIPE", "REDIR_IN", "REDIR_OUT",
 		"HEREDOC", "APPEND", "QUOTE", "DQUOTE", "DOLLAR",
-		"WORD", "SPACE"
+		"WORD", "SPACE", "SEMICOLON", "AMPERSAND", "ASSIGN"
 	};
 
-	return (names[type]);
-}
-
-void	print_tokens(t_token *tokens)
-{
 	printf("=== TOKENS ===\n");
 	while (tokens)
 	{
-		printf("[%s", get_token_name(tokens->type));
-		if (tokens->value)
-			printf(": '%s'", tokens->value);
-		printf("]\n");
+		if (tokens->type >= 0 && tokens->type <= TOKEN_ASSIGN)
+		{
+			printf("[%s", names[tokens->type]);
+			if (tokens->value)
+				printf(": '%s'", tokens->value);
+			printf("]\n");
+		}
+		else
+			printf("[UNKNOWN TYPE: %d]\n", tokens->type);
 		tokens = tokens->next;
 	}
 	printf("==============\n");

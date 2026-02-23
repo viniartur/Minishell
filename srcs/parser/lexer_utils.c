@@ -66,7 +66,7 @@ t_token	*create_token(t_token_type type, const char *value, int len)
 
 void	skip_whitespace(t_lexer *lexer)
 {
-	if (lexer->in_quote)
+	if (lexer->in_quote != 0)
 		return ;
 	while (ft_isspace(lexer->current))
 		advance_lexer(lexer);

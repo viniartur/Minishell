@@ -17,7 +17,10 @@ SRCS		= main.c \
 			  srcs/utils/utils.c \
 			  srcs/utils/prompt.c \
 			  srcs/parser/lexer.c \
-			  srcs/parser/lexer_utils.c
+			  srcs/parser/lexer_utils.c \
+			  srcs/parser/parser.c \
+			  srcs/parser/parser_utils.c \
+		      srcs/parser/ast.c
 
 OBJS		= $(SRCS:.c=.o)
 

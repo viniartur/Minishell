@@ -19,6 +19,8 @@
 # define FALSE 0
 # define LEXER_SUCCESS 0
 # define LEXER_ERROR 1
+# define PARSER_SUCCESS 0
+# define PARSER_ERROR 1
 
 typedef enum e_token_type
 {
@@ -33,7 +35,10 @@ typedef enum e_token_type
 	TOKEN_DQUOTE,
 	TOKEN_DOLLAR,
 	TOKEN_WORD,
-	TOKEN_SPACE
+	TOKEN_SPACE,
+	TOKEN_SEMICOLON,
+	TOKEN_AMPERSAND, // &
+	TOKEN_ASSIGN
 }	t_token_type;
 
 typedef struct s_token
@@ -55,11 +60,54 @@ typedef struct s_lexer
 	int			error;
 }	t_lexer;
 
+typedef struct s_redir
+{
+	int				type; 	// REDIR_IN, REDIR_OUT, APPEND, HEREDOC
+	char			*file; 	// File or delimitator
+	int				fd; 	// File descriptor for excec
+	struct s_redir	*next; 	// next redir
+}	t_redir;
+
+typedef enum e_node_type
+{
+	NODE_PIPELINE,
+	NODE_COMMAND,
+	NODE_REDIR,
+}	t_node_type;
+
+typedef struct s_command	// command built in or external
+{
+	char	**argv;		// array of arguments
+	int		argc;		// number of arguments
+	t_redir	*redirs;	//redirect list
+}	t_command;
+
+typedef struct s_ast_node
+{
+	t_node_type		type;	// node type
+	union
+	{
+		// for NODE_PIPELINE
+		struct
+		{
+			struct s_ast_node	*left;	// firts command
+			struct s_ast_node	*right;	// rest of pipeline
+		}	pipeline;
+		// for NODE_COMMAND
+		t_command	*cmd;
+		// for NODE_REDIR
+		t_redir		*redir;
+	}	data;
+}	t_ast_node;
+
+
 typedef struct s_shell
 {
-	char	**env;
-	int		exit_status;
-	t_token	*tokens;
+	char		**env;
+	int			exit_status;
+	int			should_exit;
+	t_token		*tokens;
+	t_ast_node	*ast;
 }	t_shell;
 
 extern volatile sig_atomic_t	g_signal;
@@ -89,6 +137,27 @@ void	advance_lexer(t_lexer *lexer);
 char	peek_lexer(t_lexer *lexer, int offset);
 t_token	*create_token(t_token_type type, const char *value, int len);
 void	skip_whitespace(t_lexer *lexer);
+
+/* parser.c */
+t_ast_node	*parse(t_token *tokens);
+void		free_ast(t_ast_node *ast);
+void		print_ast(t_ast_node *ast, int level);  /* Para debug */
+
+/* parser_utils.c */
+t_token		*get_next_token(t_token **tokens);
+int			match(t_token **tokens, t_token_type type);
+void		expect(t_token **tokens, t_token_type type);
+t_command	*create_command(void);
+void		add_argument(t_command *cmd, char *arg);
+void		add_redirection(t_command *cmd, t_redir *redir);
+t_redir		*create_redirection(int type, char *file);
+
+/* ast.c */
+t_ast_node	*create_ast_node(t_node_type type);
+t_ast_node	*create_command_node(t_command *cmd);
+t_ast_node	*create_pipeline_node(t_ast_node *left, t_ast_node *right);
+void		free_redirs(t_redir *redirs);
+void		free_command(t_command *cmd);
 
 /* utils.c */
 char	*ft_strdup(const char *s);
