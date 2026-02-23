@@ -129,7 +129,7 @@ static int	handle_word(t_lexer *lexer, t_token **tokens, t_token **last)
             advance_lexer(lexer);
             continue ;
         }
-        if (is_whitespace(lexer->current) ||
+        if (ft_isspace(lexer->current) ||
             lexer->current == '|' || lexer->current == '<' ||
             lexer->current == '>' || lexer->current == '$' ||
             lexer->current == ';' || lexer->current == '&' ||
