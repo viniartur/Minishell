@@ -10,47 +10,53 @@ void	init_shell(t_shell *shell, char **envp)
 	g_signal = 0;
 }
 
-static int	is_builtin_exit(t_token *tokens)
-{
-	if (!tokens || tokens->type != TOKEN_WORD)
-		return (0);
-	if (ft_strcmp(tokens->value, "exit") == 0)
-		return (1);
-	return (0);
-}
-
 static void	process_command(t_shell *shell, char *input)
 {
-    if (!input || !*input)
-        return ;
+	if (!input || !*input)
+		return ;
 
-    // 1. LEXER
-    shell->tokens = tokenize(input);
-    if (!shell->tokens || shell->tokens->type == TOKEN_EOF)
-    {
-        if (shell->tokens)
-            free_tokens(shell->tokens);
-		shell->tokens = NULL;
-        return ;
-    }
-    print_tokens(shell->tokens);  // <- ver os tokens
-	if (is_builtin_exit(shell->tokens))
+	// 1. LEXER
+	shell->tokens = tokenize(input);
+	if (!shell->tokens || shell->tokens->type == TOKEN_EOF)
 	{
-		shell->should_exit = 1;
+		if (shell->tokens)
+			free_tokens(shell->tokens);
+		shell->tokens = NULL;
+		return ;
+	}
+	print_tokens(shell->tokens);  // <- ver os tokens
+
+	// 2. PARSER
+	shell->ast = parse(shell->tokens, shell);
+	if (!shell->ast)
+	{
+		printf("DEBUG: Error on parsing");
 		free_tokens(shell->tokens);
 		shell->tokens = NULL;
 		return ;
 	}
-    // 2. PARSER
-    shell->ast = parse(shell->tokens);
-    if (shell->ast)
-    {
-        print_ast(shell->ast, 0);  // <- ver a AST
-        free_ast(shell->ast);
-        shell->ast = NULL;
-    }
-    free_tokens(shell->tokens);
-    shell->tokens = NULL;
+	printf("DEBUG: AST after var expansion:\n");
+	print_ast(shell->ast, 0);  // <- ver a AST
+
+	// 3. EXECUÇÃO
+	// Built-ins rodam no processo pai se forem comandos simples
+	if (shell->ast->type == NODE_COMMAND
+		&& shell->ast->data.cmd
+		&& shell->ast->data.cmd->argv
+		&& is_builtin(shell->ast->data.cmd->argv[0]))
+	{
+		shell->exit_status = exec_builtin(shell->ast->data.cmd, shell);
+	}
+	else
+	{
+		// Futuro Executor (fork + execve) entrará aqui
+	}
+
+	// 4. LIMPEZA - Libera memória antes do próximo prompt
+	free_ast(shell->ast);
+	shell->ast = NULL;
+	free_tokens(shell->tokens);
+	shell->tokens = NULL;
 }
 
 void	handle_input(t_shell *shell, char *input)

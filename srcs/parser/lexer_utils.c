@@ -14,6 +14,7 @@ t_lexer	*init_lexer(const char *input)
 	lexer->current = '\0';
 	lexer->in_quote = 0;
 	lexer->error = FALSE;
+	lexer->had_space = 0;
 	if (input && input[0])
 		lexer->current = input[0];
 	return (lexer);
@@ -40,6 +41,12 @@ char	peek_lexer(t_lexer *lexer, int offset)
 	return (lexer->input[peek_pos]);
 }
 
+/*
+ * Cria um token do tipo e valor fornecidos.
+ *
+ * CORREÇÃO: agora salva value para TOKEN_WORD, TOKEN_QUOTE e TOKEN_DQUOTE,
+ * pois todos esses tipos carregam conteúdo de texto que o parser precisa.
+ */
 t_token	*create_token(t_token_type type, const char *value, int len)
 {
 	t_token	*token;
@@ -49,8 +56,10 @@ t_token	*create_token(t_token_type type, const char *value, int len)
 		return (NULL);
 	token->type = type;
 	token->len = len;
+	token->preceded_by_space = 0; /* preenchido pelo lexer após skip_whitespace */
 	token->next = NULL;
-	if (type == TOKEN_WORD && value && len > 0)
+	if ((type == TOKEN_WORD || type == TOKEN_QUOTE || type == TOKEN_DQUOTE)
+		&& value && len > 0)
 	{
 		token->value = ft_substr(value, 0, len);
 		if (!token->value)
@@ -59,6 +68,8 @@ t_token	*create_token(t_token_type type, const char *value, int len)
 			return (NULL);
 		}
 	}
+	else if ((type == TOKEN_QUOTE || type == TOKEN_DQUOTE) && value && len == 0)
+		token->value = ft_strdup(""); /* aspas vazias: "" ou '' */
 	else
 		token->value = NULL;
 	return (token);
@@ -68,7 +79,11 @@ void	skip_whitespace(t_lexer *lexer)
 {
 	if (lexer->in_quote != 0)
 		return ;
+	lexer->had_space = 0;
 	while (ft_isspace(lexer->current))
+	{
+		lexer->had_space = 1;
 		advance_lexer(lexer);
+	}
 	lexer->start = lexer->pos;
 }

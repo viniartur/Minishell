@@ -46,6 +46,7 @@ typedef struct s_token
 	t_token_type	type;
 	char			*value;
 	int				len;
+	int				preceded_by_space; /* 1 se havia espaco antes deste token */
 	struct s_token	*next;
 }	t_token;
 
@@ -58,6 +59,7 @@ typedef struct s_lexer
 	char		current;
 	int			in_quote;
 	int			error;
+	int			had_space; /* 1 se skip_whitespace avancou antes do token atual */
 }	t_lexer;
 
 typedef struct s_redir
@@ -139,7 +141,7 @@ t_token	*create_token(t_token_type type, const char *value, int len);
 void	skip_whitespace(t_lexer *lexer);
 
 /* parser.c */
-t_ast_node	*parse(t_token *tokens);
+t_ast_node	*parse(t_token *tokens, t_shell *shell);
 void		free_ast(t_ast_node *ast);
 void		print_ast(t_ast_node *ast, int level);  /* Para debug */
 
@@ -178,5 +180,28 @@ char	**ft_split(char const *s, char c);
 
 /* motor / executor_utils.c */
 char	*get_command_path(char *cmd, char **env);
+
+/* srcs/builtins/ */
+int     is_builtin(char *cmd);
+int     exec_builtin(t_command *cmd, t_shell *shell);
+int     builtin_echo(t_command *cmd);
+int     builtin_cd(t_command *cmd, t_shell *shell);
+int     builtin_pwd(void);
+int     builtin_env(t_shell *shell);
+int     builtin_export(t_command *cmd, t_shell *shell);
+int     builtin_unset(t_command *cmd, t_shell *shell);
+int     builtin_exit(t_command *cmd, t_shell *shell);
+
+/* expanção variáveis */
+char	*expand_all_variables(t_shell *shell, const char *str);
+char	*expand_variable(t_shell *shell, const char *str, int *i);
+char	*expand_exit_status(t_shell *shell);
+char	*get_env_value(t_shell *shell, const char *var_name);
+
+/* expanção utils */
+int		is_valid_var_char(char c);
+char	*extract_var_name(const char *str, int start);
+char	*join_strings(char *s1, char *s2);
+void	free_split_result(char **split);
 
 #endif

@@ -10,7 +10,7 @@ static int		handle_ampersand(t_lexer *lexer, t_token **tokens, t_token **last);
 static int		handle_assign(t_lexer *lexer, t_token **tokens, t_token **last);
 static void		add_token_to_list(t_token **tokens, t_token **last, t_token *new_token);
 static int		create_and_add_token(t_token **tokens, t_token **last,
-					t_token_type type, const char *value, int len);
+				t_token_type type, const char *value, int len);
 static int		finalize_tokens(t_lexer *lexer, t_token **tokens, t_token **last);
 
 static void	handle_quotes(t_lexer *lexer)
@@ -33,13 +33,45 @@ static void	handle_quotes(t_lexer *lexer)
 		advance_lexer(lexer);
 }
 
+static int	is_valid_var_char_lexer(char c)
+{
+	return ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+		(c >= '0' && c <= '9') || c == '_');
+}
+
 static int	handle_dollar(t_lexer *lexer, t_token **tokens, t_token **last)
 {
+	char	*buf;
+	int		len;
+	int		result;
+
 	if (create_and_add_token(tokens, last, TOKEN_DOLLAR, NULL, 1) == LEXER_ERROR)
 		return (LEXER_ERROR);
-	advance_lexer(lexer);
+	advance_lexer(lexer); /* Consome o '$' */
 	lexer->start = lexer->pos;
-	return (LEXER_SUCCESS);
+	/* Se o próximo char for '?', cria WORD: '?' para expand_dollar tratar $? */
+	if (lexer->current == '?')
+	{
+		advance_lexer(lexer);
+		return (create_and_add_token(tokens, last, TOKEN_WORD, "?", 1));
+	}
+	/* Lê apenas caracteres válidos de nome de variável [a-zA-Z0-9_] */
+	buf = malloc(lexer->input_len + 1);
+	if (!buf)
+		return (LEXER_ERROR);
+	len = 0;
+	while (lexer->current != '\0' && is_valid_var_char_lexer(lexer->current))
+	{
+		buf[len++] = lexer->current;
+		advance_lexer(lexer);
+	}
+	buf[len] = '\0';
+	if (len > 0)
+		result = create_and_add_token(tokens, last, TOKEN_WORD, buf, len);
+	else
+		result = LEXER_SUCCESS; /* $ isolado — expand_dollar trata como '$' literal */
+	free(buf);
+	return (result);
 }
 
 static int	handle_redirection(t_lexer *lexer, t_token **tokens, t_token **last)
@@ -100,51 +132,94 @@ static int	is_literal_quote(t_lexer *lexer)
 	return (0);
 }
 
+/*
+ * handle_word — lê uma palavra do input, respeitando aspas.
+ *
+ * MUDANÇA: agora distingue o tipo de token com base nas aspas:
+ *   - Conteúdo entre aspas simples ('...') -> TOKEN_QUOTE  (sem expansão)
+ *   - Conteúdo entre aspas duplas ("...")  -> TOKEN_DQUOTE (expande $VAR)
+ *   - Palavra sem aspas                    -> TOKEN_WORD   (expande $VAR)
+ *
+ * Caso especial: palavra mista como hello"world" ou 'a'"b" é gerada como
+ * múltiplos tokens consecutivos que o parser concatena.
+ */
 static int	handle_word(t_lexer *lexer, t_token **tokens, t_token **last)
 {
-    char    *buf;
-    int     len;
-    int     result;
+	char			*buf;
+	int				len;
+	int				result;
+	t_token_type	type;
+	char			quote_start;
 
-    buf = malloc(lexer->input_len + 1); // máximo possível é o input inteiro
-    if (!buf)
-        return (LEXER_ERROR);
-    len = 0;
-    while (lexer->current != '\0')
-    {
-        if (lexer->current == '\'' || lexer->current == '"')
-        {
-            if (is_literal_quote(lexer))
-            {
-                buf[len++] = lexer->current;
-                advance_lexer(lexer);
-            }
-            else
-                handle_quotes(lexer);
-            continue ;
-        }
-        if (lexer->in_quote != 0)
-        {
-            buf[len++] = lexer->current;
-            advance_lexer(lexer);
-            continue ;
-        }
-        if (ft_isspace(lexer->current) ||
-            lexer->current == '|' || lexer->current == '<' ||
-            lexer->current == '>' || lexer->current == '$' ||
-            lexer->current == ';' || lexer->current == '&' ||
-            lexer->current == '=' || lexer->current == '\0')
-            break ;
-        buf[len++] = lexer->current;
-        advance_lexer(lexer);
-    }
-    buf[len] = '\0';
-    if (len > 0)
-        result = create_and_add_token(tokens, last, TOKEN_WORD, buf, len);
-    else
-        result = LEXER_SUCCESS;
-    free(buf);
-    return (result);
+	buf = malloc(lexer->input_len + 1);
+	if (!buf)
+		return (LEXER_ERROR);
+	len = 0;
+	type = TOKEN_WORD;
+
+	/* Se começar com aspas, o token inteiro é desse tipo */
+	if (lexer->current == '\'' || lexer->current == '"')
+	{
+		quote_start = lexer->current;
+		type = (quote_start == '\'') ? TOKEN_QUOTE : TOKEN_DQUOTE;
+		advance_lexer(lexer); /* Consome a aspa de abertura */
+		/* Lê conteúdo até encontrar a aspa de fechamento correspondente */
+		while (lexer->current != '\0' && lexer->current != quote_start)
+		{
+			buf[len++] = lexer->current;
+			advance_lexer(lexer);
+		}
+		if (lexer->current == quote_start)
+			advance_lexer(lexer); /* Consome a aspa de fechamento */
+		else
+		{
+			/* Aspa nunca fechada — erro */
+			free(buf);
+			write(STDERR_FILENO, "minishell: syntax error: unclosed quote\n", 41);
+			return (LEXER_ERROR);
+		}
+	}
+	else
+	{
+		/* Palavra sem aspas — lê até encontrar delimitador */
+		while (lexer->current != '\0')
+		{
+			if (lexer->current == '\'' || lexer->current == '"')
+			{
+				if (is_literal_quote(lexer))
+				{
+					buf[len++] = lexer->current;
+					advance_lexer(lexer);
+				}
+				else
+					handle_quotes(lexer);
+				continue ;
+			}
+			if (lexer->in_quote != 0)
+			{
+				buf[len++] = lexer->current;
+				advance_lexer(lexer);
+				continue ;
+			}
+			if (ft_isspace(lexer->current) ||
+				lexer->current == '|' || lexer->current == '<' ||
+				lexer->current == '>' || lexer->current == '$' ||
+				lexer->current == ';' || lexer->current == '&' ||
+				lexer->current == '=' || lexer->current == '\0')
+				break ;
+			buf[len++] = lexer->current;
+			advance_lexer(lexer);
+		}
+	}
+	buf[len] = '\0';
+	if (len > 0)
+		result = create_and_add_token(tokens, last, type, buf, len);
+	else if (type == TOKEN_QUOTE || type == TOKEN_DQUOTE)
+		result = create_and_add_token(tokens, last, type, "", 0); /* "" ou '' válidos */
+	else
+		result = LEXER_SUCCESS;
+	free(buf);
+	return (result);
 }
 
 static int	handle_semicolon(t_lexer *lexer, t_token **tokens, t_token **last)
@@ -154,7 +229,6 @@ static int	handle_semicolon(t_lexer *lexer, t_token **tokens, t_token **last)
 	advance_lexer(lexer);
 	return (LEXER_SUCCESS);
 }
-
 
 static int	handle_ampersand(t_lexer *lexer, t_token **tokens, t_token **last)
 {
@@ -189,7 +263,7 @@ static void	add_token_to_list(t_token **tokens, t_token **last, t_token *new_tok
 }
 
 static int	create_and_add_token(t_token **tokens, t_token **last,
-				t_token_type type, const char *value, int len)
+			t_token_type type, const char *value, int len)
 {
 	t_token	*new_token;
 
@@ -245,6 +319,9 @@ t_token	*tokenize(const char *input)
 			lexer->error = (handle_assign(lexer, &tokens, &last) == LEXER_ERROR);
 		else
 			lexer->error = (handle_word(lexer, &tokens, &last) == LEXER_ERROR);
+		/* Marca o token recém criado com o espaço que havia antes dele */
+		if (last && !lexer->error)
+			last->preceded_by_space = lexer->had_space;
 	}
 	if (!lexer->error)
 		lexer->error = (finalize_tokens(lexer, &tokens, &last) == LEXER_ERROR);

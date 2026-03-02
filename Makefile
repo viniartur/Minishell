@@ -20,7 +20,12 @@ SRCS		= main.c \
 			  srcs/parser/lexer_utils.c \
 			  srcs/parser/parser.c \
 			  srcs/parser/parser_utils.c \
-		      srcs/parser/ast.c
+		      srcs/parser/ast.c \
+			  srcs/builtins/builtins.c \
+			  srcs/builtins/builtins_env.c \
+			  srcs/builtins/builtins_nav.c \
+			  srcs/var_expansion/expansion.c \
+			  srcs/var_expansion/expansion_utils.c
 
 OBJS		= $(SRCS:.c=.o)
 
