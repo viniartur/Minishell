@@ -142,10 +142,22 @@ char	peek_lexer(t_lexer *lexer, int offset);
 t_token	*create_token(t_token_type type, const char *value, int len);
 void	skip_whitespace(t_lexer *lexer);
 
+/* lexer_utils2.c */
+int	is_valid_var_char_lexer(char c);
+void	add_token_to_list(t_token **tokens, t_token **last, t_token *new_token);
+int	create_and_add_token(t_token **tokens, t_token **last, t_token_type type, const char *value, int len);
+int	finalize_tokens(t_lexer *lexer, t_token **tokens, t_token **last);
+
+/* lexer_handle.c */
+int	handle_pipe(t_lexer *lexer, t_token **tokens, t_token **last);
+int	emit_segment(t_token **tokens, t_token **last, t_token_type type, char *buf, int len);
+int	handle_word(t_lexer *lexer, t_token **tokens, t_token **last);
+int	handle_semicolon(t_lexer *lexer, t_token **tokens, t_token **last);
+int	handle_ampersand(t_lexer *lexer, t_token **tokens, t_token **last);
+
 /* parser.c */
 t_ast_node	*parse(t_token *tokens, t_shell *shell);
 void		free_ast(t_ast_node *ast);
-void		print_ast(t_ast_node *ast, int level);  /* Para debug */
 
 /* parser_utils.c */
 t_token		*get_next_token(t_token **tokens);
@@ -168,7 +180,7 @@ char	*ft_strdup(const char *s);
 size_t	ft_strlen(const char *s);
 void	*ft_memcpy(void *dst, const void *src, size_t n);
 void	free_shell(t_shell *shell);
-char	*ft_substr(const char *s, int start, int len);
+char	*ft_substr(const char *s, unsigned int start, size_t len);
 size_t	ft_strcspn(const char *s, const char *reject);
 int		ft_strcmp(const char *s1, const char *s2);
 int		ft_strncmp(const char *s1, const char *s2, size_t n);
@@ -214,5 +226,10 @@ int	execute_ast(t_ast_node *node, t_shell *shell);
 int execute_command(t_command *cmd, t_shell *shell);
 int execute_pipeline(t_ast_node *node, t_shell *shell);
 int handle_redirections(t_redir *redir);
+int	collect_heredoc(t_redir *redir, t_shell *shell);
+int	prepare_heredocs(t_redir *redir, t_shell *shell);
+char *check_access(char **paths, char *cmd);
+char	*find_path_variable(char **env);
+int	execute_builtin_with_redir(t_command *cmd, t_shell *shell);
 
 #endif

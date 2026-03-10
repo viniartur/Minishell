@@ -1,6 +1,17 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   executor.c                                         :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: tmorais- <tmorais-@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2026/03/10 17:52:57 by tmorais-          #+#    #+#             */
+/*   Updated: 2026/03/10 17:58:10 by tmorais-         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #include "minishell.h"
 
-/* Dispatch — avalia o tipo de nó e chama a função apropriada. */
 int	execute_ast(t_ast_node *node, t_shell *shell)
 {
 	if (!node)
@@ -12,11 +23,6 @@ int	execute_ast(t_ast_node *node, t_shell *shell)
 	return (EXIT_FAILURE);
 }
 
-/*
- * handle_redirections — aplica os redirecionamentos no processo atual.
- * Deve ser chamada DENTRO do filho, após o fork().
- * Retorna 0 em sucesso, -1 em erro.
- */
 int	handle_redirections(t_redir *redir)
 {
 	int	fd;
@@ -50,11 +56,6 @@ int	handle_redirections(t_redir *redir)
 		}
 		else if (redir->type == TOKEN_HEREDOC)
 		{
-			/*
-			 * Cria um pipe, escreve o conteúdo no lado de escrita,
-			 * fecha esse lado e passa o lado de leitura como STDIN.
-			 * Se expand == 1, expande $VAR linha a linha.
-			 */
 			if (pipe(pipe_fd) == -1)
 				return (perror("pipe"), -1);
 			write(pipe_fd[1], redir->content, ft_strlen(redir->content));
@@ -67,85 +68,7 @@ int	handle_redirections(t_redir *redir)
 	return (0);
 }
 
-/*
- * collect_heredoc — lê linhas via readline até encontrar o delimitador
- * e guarda o conteúdo em redir->content.
- * Chamada no processo pai, antes do fork, para cada HEREDOC na lista.
- */
-static int	collect_heredoc(t_redir *redir, t_shell *shell)
-{
-	char	*line;
-	char	*tmp;
-	char	*expanded;
-	int		saved_stdin;
-	int		tty_fd;
-
-	redir->content = ft_strdup("");
-	if (!redir->content)
-		return (-1);
-	/* Garante que readline leia do terminal, não do pipe */
-	saved_stdin = dup(STDIN_FILENO);
-	tty_fd = open("/dev/tty", O_RDONLY);
-	if (tty_fd != -1)
-	{
-		dup2(tty_fd, STDIN_FILENO);
-		close(tty_fd);
-	}
-	while (1)
-	{
-		line = readline("heredoc> ");
-		if (!line)
-		{
-			ft_putstr_fd("minishell: warning: heredoc delimited by EOF\n",
-				STDERR_FILENO);
-			break ;
-		}
-		if (ft_strcmp(line, redir->file) == 0)
-		{
-			free(line);
-			break ;
-		}
-		if (redir->expand)
-			expanded = expand_all_variables(shell, line);
-		else
-			expanded = ft_strdup(line);
-		free(line);
-		tmp = ft_strjoin(redir->content, expanded);
-		free(redir->content);
-		free(expanded);
-		redir->content = ft_strjoin(tmp, "\n");
-		free(tmp);
-	}
-	/* Restaura STDIN original */
-	dup2(saved_stdin, STDIN_FILENO);
-	close(saved_stdin);
-	return (0);
-}
-
-/*
- * prepare_heredocs — percorre a lista de redirs e coleta conteúdo
- * de todos os HEREDOC antes do fork.
- */
-static int	prepare_heredocs(t_redir *redir, t_shell *shell)
-{
-	while (redir)
-	{
-		if (redir->type == TOKEN_HEREDOC)
-		{
-			if (collect_heredoc(redir, shell) == -1)
-				return (-1);
-		}
-		redir = redir->next;
-	}
-	return (0);
-}
-
-/*
- * execute_builtin_with_redir — executa builtin no processo pai
- * com suporte a redirecionamentos: salva FDs originais, aplica
- * redirecionamentos, executa, restaura FDs.
- */
-static int	execute_builtin_with_redir(t_command *cmd, t_shell *shell)
+int	execute_builtin_with_redir(t_command *cmd, t_shell *shell)
 {
 	int	saved_stdin;
 	int	saved_stdout;
@@ -171,12 +94,6 @@ static int	execute_builtin_with_redir(t_command *cmd, t_shell *shell)
 	return (status);
 }
 
-/*
- * execute_command — executa um NODE_COMMAND.
- *
- * Builtins: rodam no processo pai com save/restore de FDs.
- * Externos:  fork → handle_redirections → execve.
- */
 int	execute_command(t_command *cmd, t_shell *shell)
 {
 	pid_t	pid;
@@ -217,13 +134,6 @@ int	execute_command(t_command *cmd, t_shell *shell)
 	return (EXIT_FAILURE);
 }
 
-/*
- * execute_pipeline — executa um NODE_PIPELINE recursivamente.
- *
- * Cria um pipe, faz fork dos dois lados e espera ambos.
- * Pipelines aninhados (a | b | c) são tratados recursivamente:
- * o filho esquerdo chama execute_ast que pode ser outro pipeline.
- */
 int	execute_pipeline(t_ast_node *node, t_shell *shell)
 {
 	int		fd[2];

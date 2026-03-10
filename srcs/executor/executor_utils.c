@@ -1,6 +1,18 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   executor_utils.c                                   :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: tmorais- <tmorais-@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2026/03/10 17:57:09 by tmorais-          #+#    #+#             */
+/*   Updated: 2026/03/10 17:57:33 by tmorais-         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #include "minishell.h"
 
-static char	*find_path_variable(char **env)
+char	*find_path_variable(char **env)
 {
 	int	i;
 
@@ -14,7 +26,7 @@ static char	*find_path_variable(char **env)
 	return (NULL);
 }
 
-static char *check_access(char **paths, char *cmd)
+char	*check_access(char **paths, char *cmd)
 {
 	char	*tmp;
 	char	*full_path;

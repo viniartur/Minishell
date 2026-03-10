@@ -1,37 +1,45 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   expansion.c                                        :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: tmorais- <tmorais-@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2026/03/10 18:30:04 by tmorais-          #+#    #+#             */
+/*   Updated: 2026/03/10 18:51:29 by tmorais-         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #include "minishell.h"
 
-// Percorre o array shell->env procurando por "NOME=valor"
-char	*get_env_value(t_shell *shell, const char *var_name)
+static char	*int_to_str(int n, int digits)
 {
+	char	*str;
 	int		i;
-	size_t	len;
 
-	if (!shell || !shell->env || !var_name)
+	str = malloc(sizeof(char) * (digits + 1));
+	if (!str)
 		return (NULL);
-	len = ft_strlen(var_name);
-	i = 0;
-	while (shell->env[i])
+	str[digits] = '\0';
+	i = digits;
+	while (i > 0)
 	{
-		if (ft_strncmp(shell->env[i], var_name, len) == 0 &&
-		shell->env[i][len] == '=')
-			return (shell->env[i] + len + 1); // retorna valor após '='
-		i++;
+		i--;
+		str[i] = (n % 10) + '0';
+		n /= 10;
 	}
-	return (NULL); // se variável não existir
+	return (str);
 }
 
-// Expande $? para o status de saída (como string)
 char	*expand_exit_status(t_shell *shell)
 {
-	char	*status_str;
-	int		status;
-	int		temp;
-	int		digits;
+	int	status;
+	int	temp;
+	int	digits;
 
 	if (!shell)
 		return (ft_strdup("0"));
 	status = shell->exit_status;
-	// Garante que status nunca seja negativo (ex: sinal matou processo)
 	if (status < 0)
 		status = 255;
 	digits = 1;
@@ -41,45 +49,7 @@ char	*expand_exit_status(t_shell *shell)
 		temp /= 10;
 		digits++;
 	}
-	status_str = malloc(sizeof(char) * (digits + 1));
-	if (!status_str)
-		return (NULL);
-	status_str[digits] = '\0';
-	temp = status;
-	while (digits > 0)
-	{
-		digits--;
-		status_str[digits] = (temp % 10) + '0';
-		temp /= 10;
-	}
-	return (status_str);
-}
-
-/* Converte um inteiro (pid) para string alocada no heap */
-char	*pid_to_str(int n)
-{
-	char	buf[20];
-	int	len;
-	int	tmp;
-
-	if (n == 0)
-		return (ft_strdup("0"));
-	len = 0;
-	tmp = n;
-	while (tmp > 0)
-	{
-		tmp /= 10;
-		len++;
-	}
-	buf[len] = '\0';
-	tmp = n;
-	while (len > 0)
-	{
-		len--;
-		buf[len] = (tmp % 10) + '0';
-		tmp /= 10;
-	}
-	return (ft_strdup(buf));
+	return (int_to_str(status, digits));
 }
 
 char	*expand_variable(t_shell *shell, const char *str, int *i)
@@ -93,7 +63,6 @@ char	*expand_variable(t_shell *shell, const char *str, int *i)
 		(*i)++;
 		return (expand_exit_status(shell));
 	}
-	/* $$ expande para o PID do processo shell */
 	if (str[*i] == '$')
 	{
 		(*i)++;
@@ -101,37 +70,36 @@ char	*expand_variable(t_shell *shell, const char *str, int *i)
 	}
 	var_name = extract_var_name(str, *i);
 	if (!var_name)
-		return (ft_strdup("$")); // sozinho ou seguido de caractere inválido
-	*i += ft_strlen(var_name); // avança até o final do nome da variável
+		return (ft_strdup("$"));
+	*i += ft_strlen(var_name);
 	value = get_env_value(shell, var_name);
 	free(var_name);
 	if (value)
 		result = ft_strdup(value);
 	else
-		result = ft_strdup(""); // para string vazia / variável não definida
+		result = ft_strdup("");
 	return (result);
 }
 
-/*
-Função principal: expande todas as variáveis na string.
+static char	*expand_dollar(t_shell *shell, const char *str, int *i)
+{
+	char	*expanded;
+	char	*result;
 
-NOTA SOBRE ASPAS:
-Esta função recebe o VALOR já extraído pelo lexer, sem as aspas delimitadoras.
-O controle de aspas (expandir ou não) é responsabilidade do parser:
-  - TOKEN_QUOTE  (aspas simples): o parser NÃO chama esta função, usa ft_strdup direto
-  - TOKEN_DQUOTE (aspas duplas):  o parser CHAMA esta função — expande $VAR
-  - TOKEN_WORD   (sem aspas):     o parser CHAMA esta função — expande $VAR
+	(*i)++;
+	expanded = expand_variable(shell, str, i);
+	if (!expanded)
+		return (ft_strdup(""));
+	result = ft_strdup(expanded);
+	free(expanded);
+	return (result);
+}
 
-Portanto, toda string que chega aqui DEVE ter suas variáveis expandidas.
-O código de controle de aspas abaixo foi removido pois causava o bug:
-  echo "$HOME"  -> expandia corretamente   ✓
-  echo '$HOME'  -> também expandia (errado) ✗
-*/
 char	*expand_all_variables(t_shell *shell, const char *str)
 {
 	int		i;
 	char	*result;
-	char	*expanded;
+	char	tmp[2];
 
 	if (!str)
 		return (NULL);
@@ -142,25 +110,13 @@ char	*expand_all_variables(t_shell *shell, const char *str)
 	while (str[i])
 	{
 		if (str[i] == '$')
+			result = join_strings(result, expand_dollar(shell, str, &i));
+		else
 		{
-			i++;
-			expanded = expand_variable(shell, str, &i);
-			if (expanded)
-			{
-				result = join_strings(result, expanded);
-				free(expanded);
-			}
-			continue ;
+			tmp[0] = str[i++];
+			tmp[1] = '\0';
+			result = join_strings(result, tmp);
 		}
-		expanded = malloc(sizeof(char) * 2);
-		if (expanded)
-		{
-			expanded[0] = str[i];
-			expanded[1] = '\0';
-			result = join_strings(result, expanded);
-			free(expanded);
-		}
-		i++;
 	}
 	return (result);
 }

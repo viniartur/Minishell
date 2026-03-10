@@ -1,3 +1,15 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   builtins_nav.c                                     :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: tmorais- <tmorais-@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2026/03/10 17:42:03 by tmorais-          #+#    #+#             */
+/*   Updated: 2026/03/10 17:47:49 by tmorais-         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #include "minishell.h"
 
 int	builtin_pwd(void)
@@ -37,11 +49,6 @@ int	builtin_echo(t_command *cmd)
 	return (0);
 }
 
-/*
- * builtin_cd — muda de diretório e atualiza PWD e OLDPWD no env.
- * Sem argumento: vai para $HOME.
- * Com argumento: chdir para o caminho dado.
- */
 int	builtin_cd(t_command *cmd, t_shell *shell)
 {
 	char	*target;
@@ -70,7 +77,6 @@ int	builtin_cd(t_command *cmd, t_shell *shell)
 	}
 	else
 		target = cmd->argv[1];
-	/* Salva o diretório atual antes de mudar */
 	if (getcwd(cwd, sizeof(cwd)) == NULL)
 		cwd[0] = '\0';
 	if (chdir(target) == -1)
@@ -82,7 +88,6 @@ int	builtin_cd(t_command *cmd, t_shell *shell)
 		ft_putstr_fd("\n", STDERR_FILENO);
 		return (1);
 	}
-	/* Atualiza OLDPWD e PWD no env */
 	oldpwd = ft_strjoin("OLDPWD=", cwd);
 	builtin_export_single(oldpwd, shell);
 	free(oldpwd);
@@ -95,12 +100,6 @@ int	builtin_cd(t_command *cmd, t_shell *shell)
 	return (0);
 }
 
-/*
- * builtin_exit — sai do shell com o código fornecido.
- * exit        → código do último comando
- * exit N      → código N (0-255)
- * exit abc    → erro, não sai
- */
 static int	is_numeric_arg(const char *arg)
 {
 	int	i;
@@ -132,7 +131,6 @@ int	builtin_exit(t_command *cmd, t_shell *shell)
 		return (shell->exit_status);
 	}
 	arg = cmd->argv[1];
-	/* Argumento não numérico: erro e sai com 2 */
 	if (!is_numeric_arg(arg))
 	{
 		ft_putstr_fd("minishell: exit: ", STDERR_FILENO);
@@ -141,7 +139,6 @@ int	builtin_exit(t_command *cmd, t_shell *shell)
 		shell->should_exit = 1;
 		return (2);
 	}
-	/* Argumentos demais: erro e NÃO sai */
 	if (cmd->argc > 2)
 	{
 		ft_putstr_fd("minishell: exit: too many arguments\n", STDERR_FILENO);

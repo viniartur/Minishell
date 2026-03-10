@@ -1,3 +1,15 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   builtins_env.c                                     :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: tmorais- <tmorais-@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2026/03/10 17:50:09 by tmorais-          #+#    #+#             */
+/*   Updated: 2026/03/10 17:50:15 by tmorais-         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #include "minishell.h"
 
 int	builtin_env(t_shell *shell)
@@ -13,9 +25,6 @@ int	builtin_env(t_shell *shell)
 	return (0);
 }
 
-/*
- * env_count — conta o número de variáveis no array env.
- */
 static int	env_count(char **env)
 {
 	int	i;
@@ -26,11 +35,6 @@ static int	env_count(char **env)
 	return (i);
 }
 
-/*
- * builtin_export_single — adiciona ou atualiza uma variável no env.
- * Aceita strings no formato "NOME=valor" ou apenas "NOME".
- * Usado internamente por cd para atualizar PWD/OLDPWD.
- */
 int	builtin_export_single(char *entry, t_shell *shell)
 {
 	int		i;
@@ -54,7 +58,6 @@ int	builtin_export_single(char *entry, t_shell *shell)
 		}
 		i++;
 	}
-	/* Não existe — adiciona ao final */
 	new_env = malloc(sizeof(char *) * (env_count(shell->env) + 2));
 	if (!new_env)
 		return (1);
@@ -71,10 +74,6 @@ int	builtin_export_single(char *entry, t_shell *shell)
 	return (0);
 }
 
-/*
- * is_valid_identifier — verifica se o nome da variável é válido.
- * Deve começar com letra ou '_', seguido de letras, dígitos ou '_'.
- */
 static int	is_valid_identifier(const char *str)
 {
 	int	i;
@@ -96,10 +95,6 @@ static int	is_valid_identifier(const char *str)
 	return (1);
 }
 
-/*
- * builtin_export — sem argumentos: imprime env em formato declare -x.
- * Com argumentos: adiciona/atualiza variáveis no env.
- */
 int	builtin_export(t_command *cmd, t_shell *shell)
 {
 	int	i;
@@ -131,9 +126,6 @@ int	builtin_export(t_command *cmd, t_shell *shell)
 	return (0);
 }
 
-/*
- * builtin_unset — remove variáveis do env.
- */
 int	builtin_unset(t_command *cmd, t_shell *shell)
 {
 	int		i;

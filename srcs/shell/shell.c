@@ -1,3 +1,15 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   shell.c                                            :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: tmorais- <tmorais-@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2026/03/10 18:31:35 by tmorais-          #+#    #+#             */
+/*   Updated: 2026/03/10 18:32:25 by tmorais-         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #include "minishell.h"
 
 void	init_shell(t_shell *shell, char **envp)
@@ -14,8 +26,6 @@ static void	process_command(t_shell *shell, char *input)
 {
 	if (!input || !*input)
 		return ;
-
-	// 1. LEXER
 	shell->tokens = tokenize(input);
 	if (!shell->tokens || shell->tokens->type == TOKEN_EOF)
 	{
@@ -24,24 +34,14 @@ static void	process_command(t_shell *shell, char *input)
 		shell->tokens = NULL;
 		return ;
 	}
-	//print_tokens(shell->tokens);  // <- ver os tokens
-
-	// 2. PARSER
 	shell->ast = parse(shell->tokens, shell);
 	if (!shell->ast)
 	{
-		printf("DEBUG: Error on parsing");
 		free_tokens(shell->tokens);
 		shell->tokens = NULL;
 		return ;
 	}
-	// printf("DEBUG: AST after var expansion:\n");
-	// print_ast(shell->ast, 0);  // <- ver a AST
-
-	// 3. EXECUÇÃO — tudo passa pelo executor
 	shell->exit_status = execute_ast(shell->ast, shell);
-
-	// 4. LIMPEZA - Libera memória antes do próximo prompt
 	free_ast(shell->ast);
 	shell->ast = NULL;
 	free_tokens(shell->tokens);
@@ -62,7 +62,7 @@ void	main_loop(t_shell *shell)
 	while (1)
 	{
 		input = get_user_input();
-		if (input == NULL) // CTRL + D
+		if (input == NULL)
 		{
 			write(STDOUT_FILENO, "exit\n", 5);
 			break ;
