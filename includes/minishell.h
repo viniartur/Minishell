@@ -64,10 +64,12 @@ typedef struct s_lexer
 
 typedef struct s_redir
 {
-	int				type; 	// REDIR_IN, REDIR_OUT, APPEND, HEREDOC
-	char			*file; 	// File or delimitator
-	int				fd; 	// File descriptor for excec
-	struct s_redir	*next; 	// next redir
+	int				type; 		// REDIR_IN, REDIR_OUT, APPEND, HEREDOC
+	char			*file; 		// File name or heredoc delimiter
+	char			*content;	// Heredoc body (collected lines), NULL for other redirs
+	int				expand;		// 1 = expand $VAR inside heredoc, 0 = literal (quoted delim)
+	int				fd; 		// File descriptor for exec
+	struct s_redir	*next; 		// next redir
 }	t_redir;
 
 typedef enum e_node_type
@@ -152,7 +154,7 @@ void		expect(t_token **tokens, t_token_type type);
 t_command	*create_command(void);
 void		add_argument(t_command *cmd, char *arg);
 void		add_redirection(t_command *cmd, t_redir *redir);
-t_redir		*create_redirection(int type, char *file);
+t_redir		*create_redirection(int type, char *file, int expand);
 
 /* ast.c */
 t_ast_node	*create_ast_node(t_node_type type);
@@ -172,6 +174,7 @@ int		ft_strcmp(const char *s1, const char *s2);
 int		ft_strncmp(const char *s1, const char *s2, size_t n);
 char	*ft_strchr(const char *s, int c);
 int		ft_isspace(int c);
+void		ft_putstr_fd(const char *s, int fd);
 
 /* utils.c - Novas funções */
 char	**ft_copy_env(char **envp);
@@ -189,11 +192,13 @@ int     builtin_cd(t_command *cmd, t_shell *shell);
 int     builtin_pwd(void);
 int     builtin_env(t_shell *shell);
 int     builtin_export(t_command *cmd, t_shell *shell);
+int     builtin_export_single(char *entry, t_shell *shell);
 int     builtin_unset(t_command *cmd, t_shell *shell);
 int     builtin_exit(t_command *cmd, t_shell *shell);
 
 /* expanção variáveis */
 char	*expand_all_variables(t_shell *shell, const char *str);
+char	*pid_to_str(int n);
 char	*expand_variable(t_shell *shell, const char *str, int *i);
 char	*expand_exit_status(t_shell *shell);
 char	*get_env_value(t_shell *shell, const char *var_name);
@@ -203,5 +208,11 @@ int		is_valid_var_char(char c);
 char	*extract_var_name(const char *str, int start);
 char	*join_strings(char *s1, char *s2);
 void	free_split_result(char **split);
+
+/* executor */
+int	execute_ast(t_ast_node *node, t_shell *shell);
+int execute_command(t_command *cmd, t_shell *shell);
+int execute_pipeline(t_ast_node *node, t_shell *shell);
+int handle_redirections(t_redir *redir);
 
 #endif

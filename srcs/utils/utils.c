@@ -272,3 +272,10 @@ char	**ft_copy_env(char **envp)
 	new_env[i] = NULL;
 	return (new_env);
 }
+
+void	ft_putstr_fd(const char *s, int fd)
+{
+	if (!s)
+		return ;
+	write(fd, s, ft_strlen(s));
+}

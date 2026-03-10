@@ -55,6 +55,8 @@ void	free_redirs(t_redir *redirs)
 		next = current->next;
 		if (current->file)
 			free(current->file);
+		if (current->content)
+			free(current->content);
 		free(current);
 		current = next;
 	}

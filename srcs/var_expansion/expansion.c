@@ -55,6 +55,33 @@ char	*expand_exit_status(t_shell *shell)
 	return (status_str);
 }
 
+/* Converte um inteiro (pid) para string alocada no heap */
+char	*pid_to_str(int n)
+{
+	char	buf[20];
+	int	len;
+	int	tmp;
+
+	if (n == 0)
+		return (ft_strdup("0"));
+	len = 0;
+	tmp = n;
+	while (tmp > 0)
+	{
+		tmp /= 10;
+		len++;
+	}
+	buf[len] = '\0';
+	tmp = n;
+	while (len > 0)
+	{
+		len--;
+		buf[len] = (tmp % 10) + '0';
+		tmp /= 10;
+	}
+	return (ft_strdup(buf));
+}
+
 char	*expand_variable(t_shell *shell, const char *str, int *i)
 {
 	char	*var_name;
@@ -64,7 +91,13 @@ char	*expand_variable(t_shell *shell, const char *str, int *i)
 	if (str[*i] == '?')
 	{
 		(*i)++;
-		return (expand_exit_status(shell)); // CORRIGIDO: passou shell, não (str, *i)
+		return (expand_exit_status(shell));
+	}
+	/* $$ expande para o PID do processo shell */
+	if (str[*i] == '$')
+	{
+		(*i)++;
+		return (pid_to_str(getpid()));
 	}
 	var_name = extract_var_name(str, *i);
 	if (!var_name)

@@ -24,7 +24,7 @@ static void	process_command(t_shell *shell, char *input)
 		shell->tokens = NULL;
 		return ;
 	}
-	print_tokens(shell->tokens);  // <- ver os tokens
+	//print_tokens(shell->tokens);  // <- ver os tokens
 
 	// 2. PARSER
 	shell->ast = parse(shell->tokens, shell);
@@ -35,22 +35,11 @@ static void	process_command(t_shell *shell, char *input)
 		shell->tokens = NULL;
 		return ;
 	}
-	printf("DEBUG: AST after var expansion:\n");
-	print_ast(shell->ast, 0);  // <- ver a AST
+	// printf("DEBUG: AST after var expansion:\n");
+	// print_ast(shell->ast, 0);  // <- ver a AST
 
-	// 3. EXECUÇÃO
-	// Built-ins rodam no processo pai se forem comandos simples
-	if (shell->ast->type == NODE_COMMAND
-		&& shell->ast->data.cmd
-		&& shell->ast->data.cmd->argv
-		&& is_builtin(shell->ast->data.cmd->argv[0]))
-	{
-		shell->exit_status = exec_builtin(shell->ast->data.cmd, shell);
-	}
-	else
-	{
-		// Futuro Executor (fork + execve) entrará aqui
-	}
+	// 3. EXECUÇÃO — tudo passa pelo executor
+	shell->exit_status = execute_ast(shell->ast, shell);
 
 	// 4. LIMPEZA - Libera memória antes do próximo prompt
 	free_ast(shell->ast);

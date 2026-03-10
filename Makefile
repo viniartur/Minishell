@@ -13,7 +13,6 @@ RL_LIB		= -lreadline
 # Arquivos fonte
 SRCS		= main.c \
 			  srcs/shell/shell.c \
-			  srcs/shell/executor_utils.c \
 			  srcs/utils/utils.c \
 			  srcs/utils/prompt.c \
 			  srcs/parser/lexer.c \
@@ -25,7 +24,9 @@ SRCS		= main.c \
 			  srcs/builtins/builtins_env.c \
 			  srcs/builtins/builtins_nav.c \
 			  srcs/var_expansion/expansion.c \
-			  srcs/var_expansion/expansion_utils.c
+			  srcs/var_expansion/expansion_utils.c \
+			  srcs/executor/executor.c \
+			  srcs/executor/executor_utils.c 
 
 OBJS		= $(SRCS:.c=.o)
 

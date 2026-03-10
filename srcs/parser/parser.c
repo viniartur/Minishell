@@ -60,6 +60,12 @@ static char	*expand_dollar(t_parser *parser)
 	tok = current_token(parser);
 	if (!tok || tok->type == TOKEN_EOF)
 		return (ft_strdup("$"));
+	/* $$ -> PID do shell */
+	if (tok->type == TOKEN_DOLLAR)
+	{
+		advance_parser(parser);
+		return (pid_to_str(getpid()));
+	}
 	if (tok->type == TOKEN_WORD && tok->value
 		&& tok->value[0] == '?' && tok->value[1] == '\0')
 	{
@@ -87,7 +93,7 @@ t_ast_node	*parse(t_token *tokens, t_shell *shell)
 	parser.tokens = tokens;
 	parser.current = tokens;
 	parser.shell = shell;
-	printf("\nPARSER: Initializing parsing...\n");
+	//printf("\nPARSER: Initializing parsing...\n");
 	ast = parse_command_list(&parser);
 	if (ast && parser.current && parser.current->type != TOKEN_EOF)
 	{
@@ -95,10 +101,10 @@ t_ast_node	*parse(t_token *tokens, t_shell *shell)
 		free_ast(ast);
 		return (NULL);
 	}
-	if (ast)
-		printf("PARSER: successfully concluded\n");
-	else
-		printf("PARSER: Error on parsing\n");
+	// if (ast)
+	// 	printf("PARSER: successfully concluded\n");
+	// else
+	// 	printf("PARSER: Error on parsing\n");
 	return (ast);
 }
 
@@ -274,12 +280,19 @@ static t_ast_node	*parse_simple_command(t_parser *parser)
 /*
  * Processa redirecionamentos: <, >, >>, <<
  * Retorna 1 em sucesso, 0 em erro.
+ *
+ * Para HEREDOC:
+ *   - O delimitador é o token imediato (WORD ou QUOTE).
+ *   - Se o delimitador veio entre aspas (TOKEN_QUOTE), expand=0 (literal).
+ *   - O conteúdo já foi coletado por collect_heredoc() em shell.c
+ *     e está em redir->content — não há mais tokens de conteúdo aqui.
  */
 static int	parse_redirections(t_parser *parser, t_command *cmd)
 {
 	t_token	*current;
 	t_redir	*redir;
 	int		type;
+	int		expand;
 	char	*file;
 
 	current = current_token(parser);
@@ -289,20 +302,27 @@ static int	parse_redirections(t_parser *parser, t_command *cmd)
 			|| current->type == TOKEN_APPEND
 			|| current->type == TOKEN_HEREDOC))
 	{
-		type = (int)current->type; /* Usa os valores TOKEN_REDIR_IN/OUT/APPEND/HEREDOC diretamente,
-		                              consistente com ast.c que compara redir->type com TOKEN_* */
+		type = (int)current->type;
 		advance_parser(parser);
 		current = current_token(parser);
-		/* Próximo token DEVE ser um arquivo/delimitador */
 		if (!current || !is_arg_token(current))
 		{
 			printf("minishell: syntax error near redirection\n");
 			return (0);
 		}
-		/* Usa collect_argument para expandir variáveis no nome do arquivo
-		 * ex: > $HOME/file.txt -> expande $HOME antes de criar o redir */
-		file = collect_argument(parser);
-		redir = create_redirection(type, file);
+		if (type == (int)TOKEN_HEREDOC)
+		{
+			/* Delimitador: TOKEN_QUOTE = literal (sem expansão no conteúdo) */
+			expand = (current->type != TOKEN_QUOTE);
+			file = ft_strdup(current->value ? current->value : "");
+			advance_parser(parser);
+		}
+		else
+		{
+			expand = 1;
+			file = collect_argument(parser);
+		}
+		redir = create_redirection(type, file, expand);
 		free(file);
 		if (!redir)
 			return (0);
