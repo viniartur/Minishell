@@ -46,6 +46,7 @@ typedef struct s_token
 	t_token_type	type;
 	char			*value;
 	int				len;
+	int				preceded_by_space; /* 1 se havia espaco antes deste token */
 	struct s_token	*next;
 }	t_token;
 
@@ -58,14 +59,17 @@ typedef struct s_lexer
 	char		current;
 	int			in_quote;
 	int			error;
+	int			had_space; /* 1 se skip_whitespace avancou antes do token atual */
 }	t_lexer;
 
 typedef struct s_redir
 {
-	int				type; 	// REDIR_IN, REDIR_OUT, APPEND, HEREDOC
-	char			*file; 	// File or delimitator
-	int				fd; 	// File descriptor for excec
-	struct s_redir	*next; 	// next redir
+	int				type; 		// REDIR_IN, REDIR_OUT, APPEND, HEREDOC
+	char			*file; 		// File name or heredoc delimiter
+	char			*content;	// Heredoc body (collected lines), NULL for other redirs
+	int				expand;		// 1 = expand $VAR inside heredoc, 0 = literal (quoted delim)
+	int				fd; 		// File descriptor for exec
+	struct s_redir	*next; 		// next redir
 }	t_redir;
 
 typedef enum e_node_type
@@ -130,6 +134,8 @@ void	add_to_history(char *input);
 t_token	*tokenize(const char *input);
 void	free_tokens(t_token *tokens);
 void	print_tokens(t_token *tokens);
+void    setup_signals(void);
+void    handle_signals(int sig);
 
 /* lexer_utils.c */
 t_lexer	*init_lexer(const char *input);
@@ -138,10 +144,22 @@ char	peek_lexer(t_lexer *lexer, int offset);
 t_token	*create_token(t_token_type type, const char *value, int len);
 void	skip_whitespace(t_lexer *lexer);
 
+/* lexer_utils2.c */
+int	is_valid_var_char_lexer(char c);
+void	add_token_to_list(t_token **tokens, t_token **last, t_token *new_token);
+int	create_and_add_token(t_token **tokens, t_token **last, t_token_type type, const char *value, int len);
+int	finalize_tokens(t_lexer *lexer, t_token **tokens, t_token **last);
+
+/* lexer_handle.c */
+int	handle_pipe(t_lexer *lexer, t_token **tokens, t_token **last);
+int	emit_segment(t_token **tokens, t_token **last, t_token_type type, char *buf, int len);
+int	handle_word(t_lexer *lexer, t_token **tokens, t_token **last);
+int	handle_semicolon(t_lexer *lexer, t_token **tokens, t_token **last);
+int	handle_ampersand(t_lexer *lexer, t_token **tokens, t_token **last);
+
 /* parser.c */
-t_ast_node	*parse(t_token *tokens);
+t_ast_node	*parse(t_token *tokens, t_shell *shell);
 void		free_ast(t_ast_node *ast);
-void		print_ast(t_ast_node *ast, int level);  /* Para debug */
 
 /* parser_utils.c */
 t_token		*get_next_token(t_token **tokens);
@@ -150,7 +168,7 @@ void		expect(t_token **tokens, t_token_type type);
 t_command	*create_command(void);
 void		add_argument(t_command *cmd, char *arg);
 void		add_redirection(t_command *cmd, t_redir *redir);
-t_redir		*create_redirection(int type, char *file);
+t_redir		*create_redirection(int type, char *file, int expand);
 
 /* ast.c */
 t_ast_node	*create_ast_node(t_node_type type);
@@ -164,12 +182,13 @@ char	*ft_strdup(const char *s);
 size_t	ft_strlen(const char *s);
 void	*ft_memcpy(void *dst, const void *src, size_t n);
 void	free_shell(t_shell *shell);
-char	*ft_substr(const char *s, int start, int len);
+char	*ft_substr(const char *s, unsigned int start, size_t len);
 size_t	ft_strcspn(const char *s, const char *reject);
 int		ft_strcmp(const char *s1, const char *s2);
 int		ft_strncmp(const char *s1, const char *s2, size_t n);
 char	*ft_strchr(const char *s, int c);
 int		ft_isspace(int c);
+void		ft_putstr_fd(const char *s, int fd);
 
 /* utils.c - Novas funções */
 char	**ft_copy_env(char **envp);
@@ -187,6 +206,32 @@ int     builtin_cd(t_command *cmd, t_shell *shell);
 int     builtin_pwd(void);
 int     builtin_env(t_shell *shell);
 int     builtin_export(t_command *cmd, t_shell *shell);
+int     builtin_export_single(char *entry, t_shell *shell);
 int     builtin_unset(t_command *cmd, t_shell *shell);
 int     builtin_exit(t_command *cmd, t_shell *shell);
+
+/* expanção variáveis */
+char	*expand_all_variables(t_shell *shell, const char *str);
+char	*pid_to_str(int n);
+char	*expand_variable(t_shell *shell, const char *str, int *i);
+char	*expand_exit_status(t_shell *shell);
+char	*get_env_value(t_shell *shell, const char *var_name);
+
+/* expanção utils */
+int		is_valid_var_char(char c);
+char	*extract_var_name(const char *str, int start);
+char	*join_strings(char *s1, char *s2);
+void	free_split_result(char **split);
+
+/* executor */
+int	execute_ast(t_ast_node *node, t_shell *shell);
+int execute_command(t_command *cmd, t_shell *shell);
+int execute_pipeline(t_ast_node *node, t_shell *shell);
+int handle_redirections(t_redir *redir);
+int	collect_heredoc(t_redir *redir, t_shell *shell);
+int	prepare_heredocs(t_redir *redir, t_shell *shell);
+char *check_access(char **paths, char *cmd);
+char	*find_path_variable(char **env);
+int	execute_builtin_with_redir(t_command *cmd, t_shell *shell);
+
 #endif

@@ -1,12 +1,3 @@
-<<<<<<< HEAD
-NAME    = minishell
-CC      = cc
-CFLAGS  = -Wall -Wextra -Werror
-RM      = rm -f
-
-SRCS    = main.c
-OBJS    = $(SRCS:.c=.o)
-=======
 NAME		= minishell
 
 CC			= cc
@@ -21,38 +12,36 @@ RL_LIB		= -lreadline
 
 # Arquivos fonte
 SRCS		= main.c \
-              srcs/shell/shell.c \
-              srcs/shell/executor_utils.c \
-              srcs/utils/utils.c \
-              srcs/utils/prompt.c \
-              srcs/parser/lexer.c \
-              srcs/parser/lexer_utils.c \
-              srcs/parser/parser.c \
-              srcs/parser/parser_utils.c \
-              srcs/parser/ast.c \
-              srcs/builtins/builtins.c \
-              srcs/builtins/builtins_nav.c \
-              srcs/builtins/builtins_env.c
+			  srcs/shell/shell.c \
+			  srcs/shell/shell_free.c \
+			  srcs/utils/utils.c \
+			  srcs/utils/signals.c \
+			  srcs/utils/utils2.c \
+			  srcs/utils/utils3.c \
+			  srcs/utils/utils4.c \
+			  srcs/utils/prompt.c \
+			  srcs/lexer/lexer.c \
+			  srcs/lexer/lexer_handle.c \
+			  srcs/lexer/lexer_utils.c \
+			  srcs/lexer/lexer_utils2.c \
+			  srcs/parser/parser.c \
+			  srcs/parser/parser_utils.c \
+		      srcs/ast/ast.c \
+			  srcs/ast/ast_free.c \
+			  srcs/builtins/builtins.c \
+			  srcs/builtins/builtins_env.c \
+			  srcs/builtins/builtins_nav.c \
+			  srcs/var_expansion/expansion.c \
+			  srcs/var_expansion/expansion_utils.c \
+			  srcs/executor/executor.c \
+			  srcs/executor/executor_utils.c \
+			  srcs/executor/executor_heredoc.c 
 
 OBJS		= $(SRCS:.c=.o)
->>>>>>> main
 
 all: $(NAME)
 
 $(NAME): $(OBJS)
-<<<<<<< HEAD
-	$(CC) $(CFLAGS) $(OBJS) -lreadline -o $(NAME)
-
-clean:
-	$(RM) $(OBJS)
-
-fclean: clean
-	$(RM) $(NAME)
-
-re: fclean all
-
-.PHONY: all clean fclean re
-=======
 	@echo "🔗 Linking $(NAME)..."
 	@$(CC) $(CFLAGS) $(OBJS) -o $(NAME) $(RL_LIB)
 	@echo "✅ Minishell compiled successfully!"
@@ -72,4 +61,3 @@ fclean: clean
 re: fclean all
 
 .PHONY: all clean fclean re
->>>>>>> main
