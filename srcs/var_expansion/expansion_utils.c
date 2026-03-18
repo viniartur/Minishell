@@ -1,10 +1,16 @@
-#include "minishell.h"
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   expansion_utils.c                                  :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: tmorais- <tmorais-@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2026/03/10 18:26:59 by tmorais-          #+#    #+#             */
+/*   Updated: 2026/03/10 18:31:02 by tmorais-         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
 
-int	is_valid_var_char(char c)
-{
-	return ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-(c >= '0' && c <= '9') || (c == '_'));
-}
+#include "minishell.h"
 
 char	*extract_var_name(const char *str, int start)
 {
@@ -24,44 +30,47 @@ char	*extract_var_name(const char *str, int start)
 	return (name);
 }
 
-char	*join_strings(char	*s1, char *s2)
+char	*pid_to_str(int n)
 {
-	char	*result;
-	size_t	len1;
-	size_t	len2;
+	char	buf[20];
+	int		len;
+	int		tmp;
 
-	if (!s1 && !s2)
-		return (NULL);
-	if (!s1)
-		return (ft_strdup(s2));
-	if (!s2)
-		return (s1);
-	len1 = ft_strlen(s1);
-	len2 = ft_strlen(s2);
-	result = malloc(sizeof(char) * (len1 + len2 + 1));
-	if (!result)
+	if (n == 0)
+		return (ft_strdup("0"));
+	len = 0;
+	tmp = n;
+	while (tmp > 0)
 	{
-		free(s1);
-		return (NULL);
+		tmp /= 10;
+		len++;
 	}
-	ft_memcpy(result, s1, len1);
-	ft_memcpy(result + len1, s2, len2);
-	result[len1 + len2] = '\0';
-	free(s1);
-	return (result);
+	buf[len] = '\0';
+	tmp = n;
+	while (len > 0)
+	{
+		len--;
+		buf[len] = (tmp % 10) + '0';
+		tmp /= 10;
+	}
+	return (ft_strdup(buf));
 }
 
-void	free_split_result(char **split)
+char	*get_env_value(t_shell *shell, const char *var_name)
 {
-	int	i;
+	int		i;
+	size_t	len;
 
-	if(!split)
-		return ;
+	if (!shell || !shell->env || !var_name)
+		return (NULL);
+	len = ft_strlen(var_name);
 	i = 0;
-	while (split[i])
+	while (shell->env[i])
 	{
-		free(split[i]);
+		if (ft_strncmp(shell->env[i], var_name, len) == 0 && \
+			shell->env[i][len] == '=')
+			return (shell->env[i] + len + 1);
 		i++;
 	}
-	free(split);
+	return (NULL);
 }

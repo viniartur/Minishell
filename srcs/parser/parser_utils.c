@@ -74,7 +74,7 @@ void	add_argument(t_command *cmd, char *arg)
 }
 
 // create/init the new redir struct
-t_redir	*create_redirection(int type, char *file)
+t_redir	*create_redirection(int type, char *file, int expand)
 {
 	t_redir	*redir;
 
@@ -83,7 +83,9 @@ t_redir	*create_redirection(int type, char *file)
 		return (NULL);
 	redir->type = type;
 	redir->file = ft_strdup(file);
-	redir->fd = -1; // will be defined during exec
+	redir->content = NULL;
+	redir->expand = expand;
+	redir->fd = -1;
 	redir->next = NULL;
 	return (redir);
 }

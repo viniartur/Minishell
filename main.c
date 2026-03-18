@@ -8,6 +8,7 @@ int	main(int argc, char **argv, char **envp)
 
 	(void)argc;
 	(void)argv;
+	setup_signals();
 	init_shell(&shell, envp);
 	main_loop(&shell);
 	cleanup_shell(&shell);

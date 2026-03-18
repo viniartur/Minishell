@@ -13,19 +13,29 @@ RL_LIB		= -lreadline
 # Arquivos fonte
 SRCS		= main.c \
 			  srcs/shell/shell.c \
-			  srcs/shell/executor_utils.c \
+			  srcs/shell/shell_free.c \
 			  srcs/utils/utils.c \
+			  srcs/utils/signals.c \
+			  srcs/utils/utils2.c \
+			  srcs/utils/utils3.c \
+			  srcs/utils/utils4.c \
 			  srcs/utils/prompt.c \
-			  srcs/parser/lexer.c \
-			  srcs/parser/lexer_utils.c \
+			  srcs/lexer/lexer.c \
+			  srcs/lexer/lexer_handle.c \
+			  srcs/lexer/lexer_utils.c \
+			  srcs/lexer/lexer_utils2.c \
 			  srcs/parser/parser.c \
 			  srcs/parser/parser_utils.c \
-		      srcs/parser/ast.c \
+		      srcs/ast/ast.c \
+			  srcs/ast/ast_free.c \
 			  srcs/builtins/builtins.c \
 			  srcs/builtins/builtins_env.c \
 			  srcs/builtins/builtins_nav.c \
 			  srcs/var_expansion/expansion.c \
-			  srcs/var_expansion/expansion_utils.c
+			  srcs/var_expansion/expansion_utils.c \
+			  srcs/executor/executor.c \
+			  srcs/executor/executor_utils.c \
+			  srcs/executor/executor_heredoc.c 
 
 OBJS		= $(SRCS:.c=.o)
 
@@ -50,4 +60,14 @@ fclean: clean
 
 re: fclean all
 
-.PHONY: all clean fclean re
+val: all
+	@valgrind -q \
+		--leak-check=full \
+		--show-leak-kinds=all \
+		--track-origins=yes \
+		--trace-children=yes \
+		--track-fds=yes \
+		--suppressions=readline.supp \
+		./minishell
+
+.PHONY: all clean fclean re val
