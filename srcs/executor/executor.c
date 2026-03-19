@@ -6,7 +6,7 @@
 /*   By: tmorais- <tmorais-@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/03/10 17:52:57 by tmorais-          #+#    #+#             */
-/*   Updated: 2026/03/19 19:02:24 by tmorais-         ###   ########.fr       */
+/*   Updated: 2026/03/19 19:14:10 by tmorais-         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -18,10 +18,7 @@ static void	child_sigint_handler(int sig)
 {
 	(void)sig;
 	if (g_shell_ptr)
-	{
-		free_child_memory(g_shell_ptr);
-		free_shell(g_shell_ptr);
-	}
+		child_exit(g_shell_ptr, 130);
 	exit(130);
 }
 
@@ -230,6 +227,7 @@ int	execute_pipeline(t_ast_node *node, t_shell *shell)
 	int		fd[2];
 	pid_t	pid_left;
 	pid_t	pid_right;
+	int		status_left;
 	int		status_right;
 
 	if (pipe(fd) == -1)
@@ -274,20 +272,20 @@ int	execute_pipeline(t_ast_node *node, t_shell *shell)
 		signal(SIGINT, SIG_IGN);
 		signal(SIGQUIT, SIG_IGN);
 	}
-	waitpid(pid_left, NULL, 0);
+	waitpid(pid_left, &status_left, 0);
 	waitpid(pid_right, &status_right, 0);
 	if (!shell->in_child)
 		setup_signals();
-	if (WIFSIGNALED(status_right) && WTERMSIG(status_right) == SIGINT)
+	if ((WIFEXITED(status_left) && WEXITSTATUS(status_left) == 130)
+		|| (WIFSIGNALED(status_left) && WTERMSIG(status_left) == SIGINT))
 	{
-		write(STDOUT_FILENO, "\r\n", 2);
 		shell->exit_status = 130;
 		g_signal = SIGINT;
 		return (130);
 	}
-	if (WIFEXITED(status_right) && WEXITSTATUS(status_right) == 130)
+	if ((WIFEXITED(status_right) && WEXITSTATUS(status_right) == 130)
+		|| (WIFSIGNALED(status_right) && WTERMSIG(status_right) == SIGINT))
 	{
-		write(STDOUT_FILENO, "\r\n", 2);
 		shell->exit_status = 130;
 		g_signal = SIGINT;
 		return (130);
