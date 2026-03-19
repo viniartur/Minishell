@@ -37,7 +37,7 @@ typedef enum e_token_type
 	TOKEN_WORD,
 	TOKEN_SPACE,
 	TOKEN_SEMICOLON,
-	TOKEN_AMPERSAND, // &
+	TOKEN_AMPERSAND,
 	TOKEN_ASSIGN
 }	t_token_type;
 
@@ -46,7 +46,7 @@ typedef struct s_token
 	t_token_type	type;
 	char			*value;
 	int				len;
-	int				preceded_by_space; /* 1 se havia espaco antes deste token */
+	int				preceded_by_space;
 	struct s_token	*next;
 }	t_token;
 
@@ -59,17 +59,17 @@ typedef struct s_lexer
 	char		current;
 	int			in_quote;
 	int			error;
-	int			had_space; /* 1 se skip_whitespace avancou antes do token atual */
+	int			had_space;
 }	t_lexer;
 
 typedef struct s_redir
 {
-	int				type; 		// REDIR_IN, REDIR_OUT, APPEND, HEREDOC
-	char			*file; 		// File name or heredoc delimiter
-	char			*content;	// Heredoc body (collected lines), NULL for other redirs
-	int				expand;		// 1 = expand $VAR inside heredoc, 0 = literal (quoted delim)
-	int				fd; 		// File descriptor for exec
-	struct s_redir	*next; 		// next redir
+	int				type;
+	char			*file;
+	char			*content;
+	int				expand;
+	int				fd;
+	struct s_redir	*next;
 }	t_redir;
 
 typedef enum e_node_type
@@ -79,42 +79,40 @@ typedef enum e_node_type
 	NODE_REDIR,
 }	t_node_type;
 
-typedef struct s_command	// command built in or external
+typedef struct s_command
 {
-	char	**argv;		// array of arguments
-	int		argc;		// number of arguments
-	t_redir	*redirs;	//redirect list
+	char	**argv;
+	int		argc;
+	t_redir	*redirs;
 }	t_command;
 
 typedef struct s_ast_node
 {
-	t_node_type		type;	// node type
+	t_node_type		type;
 	union
 	{
-		// for NODE_PIPELINE
 		struct
 		{
-			struct s_ast_node	*left;	// firts command
-			struct s_ast_node	*right;	// rest of pipeline
+			struct s_ast_node	*left;
+			struct s_ast_node	*right;
 		}	pipeline;
-		// for NODE_COMMAND
 		t_command	*cmd;
-		// for NODE_REDIR
 		t_redir		*redir;
 	}	data;
 }	t_ast_node;
-
 
 typedef struct s_shell
 {
 	char		**env;
 	int			exit_status;
 	int			should_exit;
+	int			in_child;
 	t_token		*tokens;
 	t_ast_node	*ast;
 }	t_shell;
 
 extern volatile sig_atomic_t	g_signal;
+extern t_shell					*g_shell_ptr;
 
 /* main.c */
 int		main(int argc, char **argv, char **envp);
@@ -127,6 +125,7 @@ void	handle_input(t_shell *shell, char *input);
 
 /* shell_free.c */
 void	free_shell(t_shell *shell);
+void	free_child_memory(t_shell *shell);
 void	child_exit(t_shell *shell, int status);
 
 /* prompt.c */
@@ -185,58 +184,63 @@ void		free_command(t_command *cmd);
 char	*ft_strdup(const char *s);
 size_t	ft_strlen(const char *s);
 void	*ft_memcpy(void *dst, const void *src, size_t n);
-void	free_shell(t_shell *shell);
 char	*ft_substr(const char *s, unsigned int start, size_t len);
 size_t	ft_strcspn(const char *s, const char *reject);
 int		ft_strcmp(const char *s1, const char *s2);
 int		ft_strncmp(const char *s1, const char *s2, size_t n);
 char	*ft_strchr(const char *s, int c);
 int		ft_isspace(int c);
-void		ft_putstr_fd(const char *s, int fd);
-
-/* utils.c - Novas funções */
+void	ft_putstr_fd(const char *s, int fd);
 char	**ft_copy_env(char **envp);
 char	*ft_strjoin(char const *s1, char const *s2);
 char	**ft_split(char const *s, char c);
 
-/* motor / executor_utils.c */
-char	*get_command_path(char *cmd, char **env);
+/* utils4.c */
+int		is_valid_var_char(char c);
+char	*join_strings(char *s1, char *s2);
+void	free_split_result(char **split);
 
-/* srcs/builtins/ */
+/* executor_utils.c */
+char	*get_command_path(char *cmd, char **env);
+char	*find_path_variable(char **env);
+char	*check_access(char **paths, char *cmd);
+
+/* builtins.c */
 int     is_builtin(char *cmd);
 int     exec_builtin(t_command *cmd, t_shell *shell);
+
+/* builtins_nav.c */
 int     builtin_echo(t_command *cmd);
 int     builtin_cd(t_command *cmd, t_shell *shell);
 int     builtin_pwd(void);
+int     builtin_exit(t_command *cmd, t_shell *shell);
+
+/* builtins_env.c */
 int     builtin_env(t_shell *shell);
 int     builtin_export(t_command *cmd, t_shell *shell);
 int     builtin_export_single(char *entry, t_shell *shell);
 int     builtin_unset(t_command *cmd, t_shell *shell);
-int     builtin_exit(t_command *cmd, t_shell *shell);
 
-/* expanção variáveis */
+/* expansion.c */
 char	*expand_all_variables(t_shell *shell, const char *str);
-char	*pid_to_str(int n);
 char	*expand_variable(t_shell *shell, const char *str, int *i);
 char	*expand_exit_status(t_shell *shell);
+
+/* expansion_utils.c */
+char	*pid_to_str(int n);
+char	*extract_var_name(const char *str, int start);
 char	*get_env_value(t_shell *shell, const char *var_name);
 
-/* expanção utils */
-int		is_valid_var_char(char c);
-char	*extract_var_name(const char *str, int start);
-char	*join_strings(char *s1, char *s2);
-void	free_split_result(char **split);
+/* executor.c */
+int		execute_ast(t_ast_node *node, t_shell *shell);
+int		execute_command(t_command *cmd, t_shell *shell);
+int		execute_pipeline(t_ast_node *node, t_shell *shell);
+int		handle_redirections(t_redir *redir);
+int		execute_builtin_with_redir(t_command *cmd, t_shell *shell);
 
-/* executor */
-int	execute_ast(t_ast_node *node, t_shell *shell);
-int execute_command(t_command *cmd, t_shell *shell);
-int execute_pipeline(t_ast_node *node, t_shell *shell);
-int handle_redirections(t_redir *redir);
-int	collect_heredoc(t_redir *redir, t_shell *shell);
-int	prepare_heredocs(t_redir *redir, t_shell *shell);
-int	prepare_ast_heredocs(t_ast_node *node, t_shell *shell);
-char *check_access(char **paths, char *cmd);
-char	*find_path_variable(char **env);
-int	execute_builtin_with_redir(t_command *cmd, t_shell *shell);
+/* executor_heredoc.c */
+int		collect_heredoc(t_redir *redir, t_shell *shell);
+int		prepare_heredocs(t_redir *redir, t_shell *shell);
+int		prepare_ast_heredocs(t_ast_node *node, t_shell *shell);
 
 #endif

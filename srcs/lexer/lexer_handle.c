@@ -6,7 +6,7 @@
 /*   By: tmorais- <tmorais-@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/03/10 18:11:43 by tmorais-          #+#    #+#             */
-/*   Updated: 2026/03/10 18:15:24 by tmorais-         ###   ########.fr       */
+/*   Updated: 2026/03/19 13:48:17 by tmorais-         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -66,7 +66,7 @@ int	handle_word(t_lexer *lexer, t_token **tokens, t_token **last)
 			{
 				free(buf);
 				write(STDERR_FILENO, "minishell: syntax error: unclosed \
-					quote\n", 41);
+			quote\n", 41);
 				return (LEXER_ERROR);
 			}
 			advance_lexer(lexer);

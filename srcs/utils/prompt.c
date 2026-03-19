@@ -6,7 +6,7 @@
 /*   By: tmorais- <tmorais-@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/03/10 18:18:18 by tmorais-          #+#    #+#             */
-/*   Updated: 2026/03/10 18:18:19 by tmorais-         ###   ########.fr       */
+/*   Updated: 2026/03/19 18:50:24 by tmorais-         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -35,7 +35,10 @@ char	*get_user_input(void)
 	char	*input;
 
 	if (isatty(STDIN_FILENO))
+	{
+		rl_on_new_line();
 		input = readline(PROMPT);
+	}
 	else
 		input = get_non_interactive_input();
 	return (input);

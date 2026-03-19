@@ -1,3 +1,15 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   parser_utils.c                                     :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: tmorais- <tmorais-@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2026/03/10 18:00:00 by tmorais-          #+#    #+#             */
+/*   Updated: 2026/03/19 15:10:52 by tmorais-         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #include "minishell.h"
 
 t_token	*get_next_token(t_token **tokens)
@@ -11,7 +23,6 @@ t_token	*get_next_token(t_token **tokens)
 	return (current);
 }
 
-// verify if current token is of correct type expected
 int	match(t_token **tokens, t_token_type type)
 {
 	if (!tokens || !*tokens)
@@ -19,7 +30,6 @@ int	match(t_token **tokens, t_token_type type)
 	return ((*tokens)->type == type);
 }
 
-// verify if is consuming token type expected
 void	expect(t_token **tokens, t_token_type type)
 {
 	if (!tokens || !*tokens)
@@ -35,7 +45,6 @@ void	expect(t_token **tokens, t_token_type type)
 	*tokens = (*tokens)->next;
 }
 
-// to create new command struct (initiate struct)
 t_command	*create_command(void)
 {
 	t_command	*cmd;
@@ -49,40 +58,51 @@ t_command	*create_command(void)
 	return (cmd);
 }
 
-// add argument to command
+/* ===== FUNÇÃO CORRIGIDA - RECEBE STRING JÁ ALOCADA ===== */
 void	add_argument(t_command *cmd, char *arg)
 {
 	char	**new_argv;
 	int		i;
 
 	if (!cmd || !arg)
+	{
+		if (arg)
+			free(arg);
 		return ;
+	}
 	new_argv = malloc(sizeof(char *) * (cmd->argc + 2));
 	if (!new_argv)
+	{
+		free(arg);
 		return ;
+	}
 	i = 0;
 	while (i < cmd->argc)
 	{
 		new_argv[i] = cmd->argv[i];
 		i++;
 	}
-	new_argv[i] = ft_strdup(arg);
+	new_argv[i] = arg;
 	new_argv[i + 1] = NULL;
 	free(cmd->argv);
 	cmd->argv = new_argv;
 	cmd->argc++;
 }
 
-// create/init the new redir struct
+/* ===== FUNÇÃO CORRIGIDA - RECEBE FILE JÁ ALOCADO ===== */
 t_redir	*create_redirection(int type, char *file, int expand)
 {
 	t_redir	*redir;
 
 	redir = malloc(sizeof(t_redir));
 	if (!redir)
+	{
+		if (file)
+			free(file);
 		return (NULL);
+	}
 	redir->type = type;
-	redir->file = ft_strdup(file);
+	redir->file = file;
 	redir->content = NULL;
 	redir->expand = expand;
 	redir->fd = -1;
@@ -90,10 +110,9 @@ t_redir	*create_redirection(int type, char *file, int expand)
 	return (redir);
 }
 
-// add redir at command list
 void	add_redirection(t_command *cmd, t_redir *redir)
 {
-	t_redir * last;
+	t_redir *last;
 
 	if (!cmd || !redir)
 		return ;

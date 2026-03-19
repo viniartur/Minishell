@@ -1,18 +1,40 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   parser.c                                           :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: tmorais- <tmorais-@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2026/03/10 18:00:00 by tmorais-          #+#    #+#             */
+/*   Updated: 2026/03/19 15:41:46 by tmorais-         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #include "minishell.h"
 
 typedef struct s_parser
 {
-	t_token	*tokens;	/* Lista de tokens (início) */
-	t_token	*current;	/* Token atual */
+	t_token	*tokens;
+	t_token	*current;
 	t_shell	*shell;
 }	t_parser;
 
-/* Protótipos das funções internas (static) */
+/* Protótipos das funções estáticas */
+static void		advance_parser(t_parser *parser);
+static t_token	*current_token(t_parser *parser);
+static int		match_token(t_parser *parser, t_token_type type);
+static char		*expand_token(t_parser *parser, t_token *tok);
+static char		*expand_dollar(t_parser *parser);
+static int		is_arg_token(t_token *tok);
+static char		*collect_argument(t_parser *parser);
+static char		*collect_heredoc_delim(t_parser *parser, int *out_expand);
 static t_ast_node	*parse_command_list(t_parser *parser);
 static t_ast_node	*parse_pipeline(t_parser *parser);
 static t_ast_node	*parse_command(t_parser *parser);
 static t_ast_node	*parse_simple_command(t_parser *parser);
-static int			parse_redirections(t_parser *parser, t_command *cmd);
+static int		parse_redirections(t_parser *parser, t_command *cmd);
+
+/* Implementações das funções */
 
 static void	advance_parser(t_parser *parser)
 {
@@ -34,12 +56,6 @@ static int	match_token(t_parser *parser, t_token_type type)
 	return (parser->current->type == type);
 }
 
-/*
- * Decide como expandir o token com base no tipo de aspas:
- *   TOKEN_QUOTE  -> aspas simples: sem expansão, valor literal
- *   TOKEN_DQUOTE -> aspas duplas:  expande variáveis dentro
- *   TOKEN_WORD   -> sem aspas:     expande variáveis
- */
 static char	*expand_token(t_parser *parser, t_token *tok)
 {
 	if (!tok || !tok->value)
@@ -49,9 +65,6 @@ static char	*expand_token(t_parser *parser, t_token *tok)
 	return (expand_all_variables(parser->shell, tok->value));
 }
 
-/*
- * Expande $VAR ou $? a partir do token que segue o TOKEN_DOLLAR.
- */
 static char	*expand_dollar(t_parser *parser)
 {
 	t_token	*tok;
@@ -60,7 +73,6 @@ static char	*expand_dollar(t_parser *parser)
 	tok = current_token(parser);
 	if (!tok || tok->type == TOKEN_EOF)
 		return (ft_strdup("$"));
-	/* $$ -> PID do shell */
 	if (tok->type == TOKEN_DOLLAR)
 	{
 		advance_parser(parser);
@@ -93,7 +105,6 @@ t_ast_node	*parse(t_token *tokens, t_shell *shell)
 	parser.tokens = tokens;
 	parser.current = tokens;
 	parser.shell = shell;
-	//printf("\nPARSER: Initializing parsing...\n");
 	ast = parse_command_list(&parser);
 	if (ast && parser.current && parser.current->type != TOKEN_EOF)
 	{
@@ -101,14 +112,9 @@ t_ast_node	*parse(t_token *tokens, t_shell *shell)
 		free_ast(ast);
 		return (NULL);
 	}
-	// if (ast)
-	// 	printf("PARSER: successfully concluded\n");
-	// else
-	// 	printf("PARSER: Error on parsing\n");
 	return (ast);
 }
 
-/* command_list = pipeline ( ';' pipeline )* */
 static t_ast_node	*parse_command_list(t_parser *parser)
 {
 	t_ast_node	*left;
@@ -122,7 +128,6 @@ static t_ast_node	*parse_command_list(t_parser *parser)
 	while (match_token(parser, TOKEN_SEMICOLON))
 	{
 		advance_parser(parser);
-		/* ';' no fim da linha é válido — para se não houver mais comando */
 		if (!parser->current || parser->current->type == TOKEN_EOF)
 			break ;
 		right = parse_pipeline(parser);
@@ -136,7 +141,6 @@ static t_ast_node	*parse_command_list(t_parser *parser)
 	return (left);
 }
 
-/* pipeline = command ( '|' command )* */
 static t_ast_node	*parse_pipeline(t_parser *parser)
 {
 	t_ast_node	*left;
@@ -147,7 +151,7 @@ static t_ast_node	*parse_pipeline(t_parser *parser)
 	left = parse_command(parser);
 	if (!left)
 		return (NULL);
-	while (match_token(parser, TOKEN_PIPE)) // if still has pipes, continue
+	while (match_token(parser, TOKEN_PIPE))
 	{
 		advance_parser(parser);
 		right = parse_command(parser);
@@ -161,13 +165,26 @@ static t_ast_node	*parse_pipeline(t_parser *parser)
 	return (left);
 }
 
-/* command = simple_command (redirection)* */
 static t_ast_node	*parse_command(t_parser *parser)
 {
 	t_ast_node	*node;
 	t_command	*cmd;
+	t_token		*cur;
 
 	node = parse_simple_command(parser);
+	cur = current_token(parser);
+	if (!node && cur && (cur->type == TOKEN_REDIR_IN
+			|| cur->type == TOKEN_REDIR_OUT
+			|| cur->type == TOKEN_APPEND
+			|| cur->type == TOKEN_HEREDOC))
+	{
+		cmd = create_command();
+		if (!cmd)
+			return (NULL);
+		node = create_command_node(cmd);
+		if (!node)
+			return (free_command(cmd), NULL);
+	}
 	if (!node || node->type != NODE_COMMAND)
 		return (node);
 	cmd = node->data.cmd;
@@ -179,9 +196,6 @@ static t_ast_node	*parse_command(t_parser *parser)
 	return (node);
 }
 
-/*
- * is_arg_token — retorna 1 se o token pode fazer parte de um argumento.
- */
 static int	is_arg_token(t_token *tok)
 {
 	if (!tok)
@@ -192,14 +206,8 @@ static int	is_arg_token(t_token *tok)
 		|| tok->type == TOKEN_DOLLAR);
 }
 
-/*
- * collect_argument — lê todos os tokens contíguos que formam um único
- * argumento e retorna a string resultante concatenada.
- *
- * Resolve casos como:
- *   $?$?        -> "00"             (dois DOLLARs seguidos = um argumento)
- *   "$HOME"txt  -> "/home/usertxt"  (DQUOTE + WORD colados)
- */
+/* ===== FUNÇÃO COLLECT_ARGUMENT CORRIGIDA ===== */
+/* ===== FUNÇÃO CORRIGIDA ===== */
 static char	*collect_argument(t_parser *parser)
 {
 	char	*result;
@@ -210,16 +218,14 @@ static char	*collect_argument(t_parser *parser)
 	result = ft_strdup("");
 	if (!result)
 		return (NULL);
+	
 	count = 0;
 	current = current_token(parser);
-	/* Tokens contíguos (sem espaço entre eles) são concatenados no mesmo argumento.
-	 * preceded_by_space > 0 indica separação — o loop para, e parse_simple_command
-	 * iniciará um novo argumento na próxima iteração. */
 	while (current && is_arg_token(current))
 	{
-		/* Após consumir ao menos um token, espaço antes significa novo argumento */
 		if (count > 0 && current->preceded_by_space)
 			break ;
+		
 		if (current->type == TOKEN_DOLLAR)
 		{
 			advance_parser(parser);
@@ -230,28 +236,41 @@ static char	*collect_argument(t_parser *parser)
 			piece = expand_token(parser, current);
 			advance_parser(parser);
 		}
+		
 		if (!piece)
-			break ;
-		result = join_strings(result, piece);
-		free(piece);
+		{
+			free(result);
+			return (NULL);
+		}
+		
+		/* Se piece for vazio, não adiciona */
+		if (piece[0] != '\0')
+		{
+			result = join_strings(result, piece);
+			free(piece);
+		}
+		else
+		{
+			free(piece);
+		}
+		
+		if (!result)
+			return (NULL);
+		
 		count++;
 		current = current_token(parser);
 	}
+	
+	/* Se não coletou nada, libera e retorna NULL */
+	if (result[0] == '\0' && count == 0)
+	{
+		free(result);
+		return (NULL);
+	}
+	
 	return (result);
 }
 
-/*
- * simple_command → (WORD | QUOTE | DQUOTE | '$' WORD)*
- *
- * Expansão de variáveis respeita o tipo de aspas do token:
- *   TOKEN_QUOTE  -> aspas simples: sem expansão (ex: '$HOME' -> $HOME literal)
- *   TOKEN_DQUOTE -> aspas duplas:  expande $VAR (ex: "$HOME" -> /home/user)
- *   TOKEN_WORD   -> sem aspas:     expande $VAR
- *   TOKEN_DOLLAR -> expande variável do token seguinte
- *
- * Tokens contíguos são concatenados em um único argumento:
- *   $?$? -> "00"   |   "$HOME"_text -> "/home/user_text"
- */
 static t_ast_node	*parse_simple_command(t_parser *parser)
 {
 	t_command	*cmd;
@@ -265,8 +284,8 @@ static t_ast_node	*parse_simple_command(t_parser *parser)
 	while (current && is_arg_token(current))
 	{
 		arg = collect_argument(parser);
-		add_argument(cmd, arg);
-		free(arg);
+		if (arg)
+			add_argument(cmd, arg);
 		current = current_token(parser);
 	}
 	if (cmd->argc == 0 && !cmd->redirs)
@@ -277,16 +296,7 @@ static t_ast_node	*parse_simple_command(t_parser *parser)
 	return (create_command_node(cmd));
 }
 
-/*
- * collect_heredoc_delim — monta o delimitador do heredoc SEM expandir nada.
- *
- * Tokens contíguos são concatenados como texto literal:
- *   TOKEN_DOLLAR      -> "$"
- *   TOKEN_WORD "HOME" -> "HOME"
- *   resultado         -> "$HOME"   (delimitador literal, bash-compatible)
- *
- * Retorna a string alocada ou NULL em erro de malloc.
- */
+/* ===== FUNÇÃO COLLECT_HEREDOC_DELIM CORRIGIDA ===== */
 static char	*collect_heredoc_delim(t_parser *parser, int *out_expand)
 {
 	t_token	*cur;
@@ -319,6 +329,7 @@ static char	*collect_heredoc_delim(t_parser *parser, int *out_expand)
 		}
 		result = join_strings(result, tmp);
 		free(tmp);
+		tmp = NULL;
 		if (!result)
 			return (NULL);
 		advance_parser(parser);
@@ -328,16 +339,6 @@ static char	*collect_heredoc_delim(t_parser *parser, int *out_expand)
 	return (result);
 }
 
-/*
- * Processa redirecionamentos: <, >, >>, <<
- * Retorna 1 em sucesso, 0 em erro.
- *
- * Para HEREDOC:
- *   - O delimitador é montado literalmente (sem expansão de variáveis).
- *   - Se qualquer parte vier entre aspas simples (TOKEN_QUOTE), expand=0.
- *   - O conteúdo já foi coletado por collect_heredoc() em shell.c
- *     e está em redir->content — não há mais tokens de conteúdo aqui.
- */
 static int	parse_redirections(t_parser *parser, t_command *cmd)
 {
 	t_token	*current;
@@ -368,9 +369,7 @@ static int	parse_redirections(t_parser *parser, t_command *cmd)
 			expand = 1;
 			file = collect_argument(parser);
 		}
-
 		redir = create_redirection(type, file, expand);
-		free(file);
 		if (!redir)
 			return (0);
 		add_redirection(cmd, redir);

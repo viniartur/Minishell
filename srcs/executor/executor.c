@@ -3,14 +3,27 @@
 /*                                                        :::      ::::::::   */
 /*   executor.c                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: vvieira <vvieira@student.42sp.org.br>      +#+  +:+       +#+        */
+/*   By: tmorais- <tmorais-@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/03/10 17:52:57 by tmorais-          #+#    #+#             */
-/*   Updated: 2026/03/16 20:58:28 by vvieira          ###   ########.fr       */
+/*   Updated: 2026/03/19 19:02:24 by tmorais-         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "minishell.h"
+
+extern t_shell	*g_shell_ptr;
+
+static void	child_sigint_handler(int sig)
+{
+	(void)sig;
+	if (g_shell_ptr)
+	{
+		free_child_memory(g_shell_ptr);
+		free_shell(g_shell_ptr);
+	}
+	exit(130);
+}
 
 int	execute_ast(t_ast_node *node, t_shell *shell)
 {
@@ -86,7 +99,9 @@ int	execute_builtin_with_redir(t_command *cmd, t_shell *shell)
 		close(saved_stdout);
 		return (EXIT_FAILURE);
 	}
-	status = exec_builtin(cmd, shell);
+	status = EXIT_SUCCESS;
+	if (cmd->argv && cmd->argv[0])
+		status = exec_builtin(cmd, shell);
 	dup2(saved_stdin, STDIN_FILENO);
 	dup2(saved_stdout, STDOUT_FILENO);
 	close(saved_stdin);
@@ -94,23 +109,69 @@ int	execute_builtin_with_redir(t_command *cmd, t_shell *shell)
 	return (status);
 }
 
+static char	**dup_argv(char **argv, int argc)
+{
+	char	**copy;
+	int		i;
+
+	copy = malloc(sizeof(char *) * (argc + 1));
+	if (!copy)
+		return (NULL);
+	i = 0;
+	while (i < argc)
+	{
+		copy[i] = ft_strdup(argv[i]);
+		if (!copy[i])
+		{
+			while (--i >= 0)
+				free(copy[i]);
+			free(copy);
+			return (NULL);
+		}
+		i++;
+	}
+	copy[i] = NULL;
+	return (copy);
+}
+
+static void	free_argv(char **argv)
+{
+	int	i;
+
+	if (!argv)
+		return ;
+	i = 0;
+	while (argv[i])
+	{
+		free(argv[i]);
+		i++;
+	}
+	free(argv);
+}
+
 int	execute_command(t_command *cmd, t_shell *shell)
 {
 	pid_t	pid;
 	int		status;
 	char	*path;
+	char	**argv_copy;
 
-	if (!cmd || !cmd->argv || !cmd->argv[0])
+	if (!cmd)
 		return (EXIT_SUCCESS);
+	if (!cmd->argv || !cmd->argv[0])
+	{
+		if (cmd->redirs)
+			return (execute_builtin_with_redir(cmd, shell));
+		return (EXIT_SUCCESS);
+	}
 	if (is_builtin(cmd->argv[0]))
 		return (execute_builtin_with_redir(cmd, shell));
-
 	pid = fork();
 	if (pid == -1)
 		return (perror("fork"), EXIT_FAILURE);
 	if (pid == 0)
 	{
-		signal(SIGINT, SIG_DFL);
+		signal(SIGINT, child_sigint_handler);
 		signal(SIGQUIT, SIG_DFL);
 		if (handle_redirections(cmd->redirs) == -1)
 			child_exit(shell, EXIT_FAILURE);
@@ -122,30 +183,42 @@ int	execute_command(t_command *cmd, t_shell *shell)
 			ft_putstr_fd(": command not found\n", STDERR_FILENO);
 			child_exit(shell, 127);
 		}
-		execve(path, cmd->argv, shell->env);
-		perror(cmd->argv[0]);
+		argv_copy = dup_argv(cmd->argv, cmd->argc);
+		if (!argv_copy)
+		{
+			free(path);
+			child_exit(shell, EXIT_FAILURE);
+		}
+		free_child_memory(shell);
+		execve(path, argv_copy, shell->env);
+		perror(argv_copy[0]);
 		free(path);
-		child_exit(shell, 126);
+		free_argv(argv_copy);
+		exit(126);
 	}
-
-	// No processo pai, você pode querer ignorar os sinais 
-	// temporariamente para evitar prints duplos de prompt
-	signal(SIGINT, SIG_IGN); 
-
+	if (!shell->in_child)
+		signal(SIGINT, SIG_IGN);
 	waitpid(pid, &status, 0);
-
-	// --- RESTAURE OS SINAIS DO PAI ---
-	setup_signals(); // Função que definimos no passo anterior
-	// ---------------------------------
-
+	if (!shell->in_child)
+		setup_signals();
+	if (WIFSIGNALED(status) && WTERMSIG(status) == SIGINT)
+	{
+		write(STDOUT_FILENO, "\r\n", 2);
+		shell->exit_status = 130;
+		g_signal = SIGINT;
+		return (130);
+	}
+	if (WIFEXITED(status) && WEXITSTATUS(status) == 130)
+	{
+		shell->exit_status = 130;
+		g_signal = SIGINT;
+		return (130);
+	}
 	if (WIFEXITED(status))
 		return (WEXITSTATUS(status));
 	if (WIFSIGNALED(status))
 	{
-		// Se o filho foi morto por um sinal, o Bash costuma printar uma nova linha
-		if (WTERMSIG(status) == SIGINT)
-			write(1, "\n", 1);
-		else if (WTERMSIG(status) == SIGQUIT)
+		if (WTERMSIG(status) == SIGQUIT)
 			write(1, "Quit (core dumped)\n", 19);
 		return (128 + WTERMSIG(status));
 	}
@@ -166,6 +239,9 @@ int	execute_pipeline(t_ast_node *node, t_shell *shell)
 		return (perror("fork"), close(fd[0]), close(fd[1]), EXIT_FAILURE);
 	if (pid_left == 0)
 	{
+		signal(SIGINT, child_sigint_handler);
+		signal(SIGQUIT, SIG_DFL);
+		shell->in_child = 1;
 		close(fd[0]);
 		dup2(fd[1], STDOUT_FILENO);
 		close(fd[1]);
@@ -182,6 +258,9 @@ int	execute_pipeline(t_ast_node *node, t_shell *shell)
 	}
 	if (pid_right == 0)
 	{
+		signal(SIGINT, child_sigint_handler);
+		signal(SIGQUIT, SIG_DFL);
+		shell->in_child = 1;
 		close(fd[1]);
 		dup2(fd[0], STDIN_FILENO);
 		close(fd[0]);
@@ -190,11 +269,30 @@ int	execute_pipeline(t_ast_node *node, t_shell *shell)
 	}
 	close(fd[0]);
 	close(fd[1]);
+	if (!shell->in_child)
+	{
+		signal(SIGINT, SIG_IGN);
+		signal(SIGQUIT, SIG_IGN);
+	}
 	waitpid(pid_left, NULL, 0);
 	waitpid(pid_right, &status_right, 0);
+	if (!shell->in_child)
+		setup_signals();
+	if (WIFSIGNALED(status_right) && WTERMSIG(status_right) == SIGINT)
+	{
+		write(STDOUT_FILENO, "\r\n", 2);
+		shell->exit_status = 130;
+		g_signal = SIGINT;
+		return (130);
+	}
+	if (WIFEXITED(status_right) && WEXITSTATUS(status_right) == 130)
+	{
+		write(STDOUT_FILENO, "\r\n", 2);
+		shell->exit_status = 130;
+		g_signal = SIGINT;
+		return (130);
+	}
 	if (WIFEXITED(status_right))
 		return (WEXITSTATUS(status_right));
-	if (WIFSIGNALED(status_right))
-		return (128 + WTERMSIG(status_right));
 	return (EXIT_FAILURE);
 }
