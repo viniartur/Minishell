@@ -6,7 +6,7 @@
 /*   By: tmorais- <tmorais-@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/03/10 17:50:09 by tmorais-          #+#    #+#             */
-/*   Updated: 2026/03/10 17:50:15 by tmorais-         ###   ########.fr       */
+/*   Updated: 2026/03/23 18:26:27 by tmorais-         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -98,18 +98,77 @@ static int	is_valid_identifier(const char *str)
 	return (1);
 }
 
+static int	export_strcmp(const char *a, const char *b)
+{
+	int	ia;
+	int	ib;
+
+	ia = 0;
+	ib = 0;
+	while (a[ia] && a[ia] != '=')
+		ia++;
+	while (b[ib] && b[ib] != '=')
+		ib++;
+	if (ia != ib)
+		return (ft_strncmp(a, b, ia < ib ? ia : ib) != 0
+			? ft_strncmp(a, b, ia < ib ? ia : ib)
+			: ia - ib);
+	return (ft_strncmp(a, b, ia));
+}
+
+static void	print_export_sorted(char **env)
+{
+	int		count;
+	int		i;
+	int		j;
+	char	**sorted;
+	char	*tmp;
+
+	count = 0;
+	while (env && env[count])
+		count++;
+	sorted = malloc(sizeof(char *) * (count + 1));
+	if (!sorted)
+		return ;
+	i = 0;
+	while (i < count)
+	{
+		sorted[i] = env[i];
+		i++;
+	}
+	sorted[count] = NULL;
+	i = 0;
+	while (i < count - 1)
+	{
+		j = i + 1;
+		while (j < count)
+		{
+			if (export_strcmp(sorted[i], sorted[j]) > 0)
+			{
+				tmp = sorted[i];
+				sorted[i] = sorted[j];
+				sorted[j] = tmp;
+			}
+			j++;
+		}
+		i++;
+	}
+	i = 0;
+	while (sorted[i])
+	{
+		printf("declare -x %s\n", sorted[i]);
+		i++;
+	}
+	free(sorted);
+}
+
 int	builtin_export(t_command *cmd, t_shell *shell)
 {
 	int	i;
 
 	if (cmd->argc < 2)
 	{
-		i = 0;
-		while (shell->env && shell->env[i])
-		{
-			printf("declare -x %s\n", shell->env[i]);
-			i++;
-		}
+		print_export_sorted(shell->env);
 		return (0);
 	}
 	i = 1;

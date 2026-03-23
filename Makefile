@@ -65,9 +65,8 @@ val: all
 		--leak-check=full \
 		--show-leak-kinds=all \
 		--track-origins=yes \
-		--trace-children=yes \
 		--track-fds=yes \
-		--suppressions=readline.supp \
+		--suppressions=$(PWD)/readline.supp \
 		./minishell
 
 .PHONY: all clean fclean re val

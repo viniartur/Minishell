@@ -99,6 +99,7 @@ char	*expand_all_variables(t_shell *shell, const char *str)
 {
 	int		i;
 	char	*result;
+	char	*expanded;
 	char	tmp[2];
 
 	if (!str)
@@ -110,7 +111,11 @@ char	*expand_all_variables(t_shell *shell, const char *str)
 	while (str[i])
 	{
 		if (str[i] == '$')
-			result = join_strings(result, expand_dollar(shell, str, &i));
+		{
+			expanded = expand_dollar(shell, str, &i);
+			result = join_strings(result, expanded);
+			free(expanded);
+		}
 		else
 		{
 			tmp[0] = str[i++];
