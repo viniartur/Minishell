@@ -6,7 +6,7 @@
 /*   By: tmorais- <tmorais-@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/03/10 18:26:59 by tmorais-          #+#    #+#             */
-/*   Updated: 2026/03/10 18:31:02 by tmorais-         ###   ########.fr       */
+/*   Updated: 2026/03/25 15:06:56 by tmorais-         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -73,4 +73,25 @@ char	*get_env_value(t_shell *shell, const char *var_name)
 		i++;
 	}
 	return (NULL);
+}
+
+char	*expand_exit_status(t_shell *shell)
+{
+	int	status;
+	int	temp;
+	int	digits;
+
+	if (!shell)
+		return (ft_strdup("0"));
+	status = shell->exit_status;
+	if (status < 0)
+		status = 255;
+	digits = 1;
+	temp = status;
+	while (temp >= 10)
+	{
+		temp /= 10;
+		digits++;
+	}
+	return (int_to_str(status, digits));
 }

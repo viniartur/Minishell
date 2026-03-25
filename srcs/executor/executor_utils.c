@@ -6,7 +6,7 @@
 /*   By: tmorais- <tmorais-@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/03/10 17:57:09 by tmorais-          #+#    #+#             */
-/*   Updated: 2026/03/10 17:57:33 by tmorais-         ###   ########.fr       */
+/*   Updated: 2026/03/25 16:05:02 by tmorais-         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -67,4 +67,22 @@ char	*get_command_path(char *cmd, char **env)
 		free(paths[i++]);
 	free(paths);
 	return (resolved_path);
+}
+
+void	child_sigint_handler(int sig)
+{
+	(void)sig;
+	g_signal = SIGINT;
+}
+
+int	handle_output_redir(t_redir *r)
+{
+	int	fd;
+
+	fd = open(r->file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+	if (fd == -1)
+		return (perror(r->file), -1);
+	dup2(fd, STDOUT_FILENO);
+	close(fd);
+	return (0);
 }

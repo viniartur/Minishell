@@ -6,22 +6,11 @@
 /*   By: tmorais- <tmorais-@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/03/10 18:00:00 by tmorais-          #+#    #+#             */
-/*   Updated: 2026/03/19 15:10:52 by tmorais-         ###   ########.fr       */
+/*   Updated: 2026/03/25 17:03:38 by tmorais-         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "minishell.h"
-
-t_token	*get_next_token(t_token **tokens)
-{
-	t_token	*current;
-
-	if (!tokens || !*tokens)
-		return (NULL);
-	current = *tokens;
-	*tokens = (*tokens)->next;
-	return (current);
-}
 
 int	match(t_token **tokens, t_token_type type)
 {
@@ -58,7 +47,6 @@ t_command	*create_command(void)
 	return (cmd);
 }
 
-/* ===== FUNÇÃO CORRIGIDA - RECEBE STRING JÁ ALOCADA ===== */
 void	add_argument(t_command *cmd, char *arg)
 {
 	char	**new_argv;
@@ -72,10 +60,7 @@ void	add_argument(t_command *cmd, char *arg)
 	}
 	new_argv = malloc(sizeof(char *) * (cmd->argc + 2));
 	if (!new_argv)
-	{
-		free(arg);
-		return ;
-	}
+		return (free(arg), (void)0);
 	i = 0;
 	while (i < cmd->argc)
 	{
@@ -89,7 +74,6 @@ void	add_argument(t_command *cmd, char *arg)
 	cmd->argc++;
 }
 
-/* ===== FUNÇÃO CORRIGIDA - RECEBE FILE JÁ ALOCADO ===== */
 t_redir	*create_redirection(int type, char *file, int expand)
 {
 	t_redir	*redir;
@@ -108,21 +92,4 @@ t_redir	*create_redirection(int type, char *file, int expand)
 	redir->fd = -1;
 	redir->next = NULL;
 	return (redir);
-}
-
-void	add_redirection(t_command *cmd, t_redir *redir)
-{
-	t_redir *last;
-
-	if (!cmd || !redir)
-		return ;
-	if (!cmd->redirs)
-	{
-		cmd->redirs = redir;
-		return ;
-	}
-	last = cmd->redirs;
-	while (last->next)
-		last = last->next;
-	last->next = redir;
 }

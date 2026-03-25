@@ -6,7 +6,7 @@
 /*   By: tmorais- <tmorais-@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/03/10 18:05:46 by tmorais-          #+#    #+#             */
-/*   Updated: 2026/03/10 18:09:23 by tmorais-         ###   ########.fr       */
+/*   Updated: 2026/03/25 19:49:09 by tmorais-         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -34,26 +34,29 @@ void	add_token_to_list(t_token **tokens, t_token **last, t_token *new_token)
 	}
 }
 
-int	create_and_add_token(t_token **tokens, t_token **last,
-			t_token_type type, const char *value, int len)
+int	create_and_add_token(t_tklist lst, t_token_type type,
+		const char *value, int len)
 {
 	t_token	*new_token;
 
 	new_token = create_token(type, value, len);
 	if (!new_token)
 		return (LEXER_ERROR);
-	add_token_to_list(tokens, last, new_token);
+	add_token_to_list(lst.tokens, lst.last, new_token);
 	return (LEXER_SUCCESS);
 }
 
 int	finalize_tokens(t_lexer *lexer, t_token **tokens, t_token **last)
 {
+	t_tklist	lst;
+
 	if (lexer->in_quote != 0)
 	{
-		write(STDERR_FILENO, "minishell: syntax error: unclosed quote\n", 41);
+		write(STDERR_FILENO, "minishell: syntax error: unclosed quote\n", 40);
 		return (LEXER_ERROR);
 	}
-	if (create_and_add_token(tokens, last, TOKEN_EOF, NULL, 0) == LEXER_ERROR)
+	lst = (t_tklist){tokens, last};
+	if (create_and_add_token(lst, TOKEN_EOF, NULL, 0) == LEXER_ERROR)
 		return (LEXER_ERROR);
 	return (LEXER_SUCCESS);
 }

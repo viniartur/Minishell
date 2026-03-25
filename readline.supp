@@ -22,3 +22,40 @@
    ...
    fun:(below main)
 }
+{
+   ignore_git_memory_errors
+   Memcheck:Leak
+   ...
+   obj:/usr/bin/git
+}
+{
+   ignore_git_vgpreload
+   Memcheck:Leak
+   obj:*/vgpreload_memcheck*
+   ...
+   obj:/usr/bin/git
+}
+{
+   ignore_external_binaries_usr_bin
+   Memcheck:Leak
+   ...
+   obj:/usr/bin/*
+}
+{
+   ignore_external_binaries_bin
+   Memcheck:Leak
+   ...
+   obj:/bin/*
+}
+{
+   ignore_usr_lib_memory_errors
+   Memcheck:Leak
+   ...
+   obj:/usr/lib/*
+}
+{
+   ignore_usr_libexec
+   Memcheck:Leak
+   ...
+   obj:/usr/libexec/*
+}

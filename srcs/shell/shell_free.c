@@ -6,7 +6,7 @@
 /*   By: tmorais- <tmorais-@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/03/10 18:22:20 by tmorais-          #+#    #+#             */
-/*   Updated: 2026/03/19 19:07:01 by tmorais-         ###   ########.fr       */
+/*   Updated: 2026/03/25 15:19:59 by tmorais-         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -61,4 +61,32 @@ void	child_exit(t_shell *shell, int status)
 	free_shell(shell);
 	rl_clear_history();
 	exit(status);
+}
+
+void	cleanup_shell(t_shell *shell)
+{
+	int	i;
+
+	if (shell->tokens)
+	{
+		free_tokens(shell->tokens);
+		shell->tokens = NULL;
+	}
+	if (shell->ast)
+	{
+		free_ast(shell->ast);
+		shell->ast = NULL;
+	}
+	if (shell->env)
+	{
+		i = 0;
+		while (shell->env[i])
+		{
+			free(shell->env[i]);
+			shell->env[i] = NULL;
+			i++;
+		}
+		free(shell->env);
+		shell->env = NULL;
+	}
 }

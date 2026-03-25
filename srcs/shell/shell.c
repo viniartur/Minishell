@@ -5,28 +5,15 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: tmorais- <tmorais-@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/03/10 18:31:35 by tmorais-          #+#    #+#             */
-/*   Updated: 2026/03/19 19:14:00 by tmorais-         ###   ########.fr       */
+/*   Created: 2026/03/25 15:20:37 by tmorais-          #+#    #+#             */
+/*   Updated: 2026/03/25 15:21:32 by tmorais-         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "minishell.h"
 
-void	init_shell(t_shell *shell, char **envp)
+int	handle_tokens(t_shell *shell, char *input)
 {
-	shell->exit_status = EXIT_SUCCESS;
-	shell->should_exit = 0;
-	shell->in_child = 0;
-	shell->tokens = NULL;
-	shell->ast = NULL;
-	shell->env = ft_copy_env(envp);
-	g_signal = 0;
-}
-
-void	process_command(t_shell *shell, char *input)
-{
-	if (!input || !*input)
-		return ;
 	shell->tokens = tokenize(input);
 	if (!shell->tokens || shell->tokens->type == TOKEN_EOF)
 	{
@@ -35,14 +22,19 @@ void	process_command(t_shell *shell, char *input)
 			free_tokens(shell->tokens);
 			shell->tokens = NULL;
 		}
-		return ;
+		return (0);
 	}
+	return (1);
+}
+
+int	handle_ast(t_shell *shell)
+{
 	shell->ast = parse(shell->tokens, shell);
 	if (!shell->ast)
 	{
 		free_tokens(shell->tokens);
 		shell->tokens = NULL;
-		return ;
+		return (0);
 	}
 	if (prepare_ast_heredocs(shell->ast, shell) == -1)
 	{
@@ -51,23 +43,41 @@ void	process_command(t_shell *shell, char *input)
 		free_tokens(shell->tokens);
 		shell->tokens = NULL;
 		g_signal = 0;
-		return ;
+		return (0);
 	}
-	shell->exit_status = execute_ast(shell->ast, shell);
-	free_ast(shell->ast);
-	shell->ast = NULL;
-	if (shell->tokens)
-	{
-		free_tokens(shell->tokens);
-		shell->tokens = NULL;
-	}
+	return (1);
 }
 
-void	handle_input(t_shell *shell, char *input)
+static int	handle_signal_interrupt(t_shell *shell, char *input)
 {
-	if (!input || !*input)
-		return ;
-	process_command(shell, input);
+	if (g_signal == SIGINT)
+	{
+		shell->exit_status = 130;
+		g_signal = 0;
+		if (shell->ast)
+		{
+			free_ast(shell->ast);
+			shell->ast = NULL;
+		}
+		if (shell->tokens)
+		{
+			free_tokens(shell->tokens);
+			shell->tokens = NULL;
+		}
+		free(input);
+		return (1);
+	}
+	return (0);
+}
+
+static void	handle_post_execution(t_shell *shell)
+{
+	if (g_signal == SIGINT)
+	{
+		write(STDOUT_FILENO, "\n", 1);
+		g_signal = 0;
+		shell->exit_status = 130;
+	}
 }
 
 void	main_loop(t_shell *shell)
@@ -85,64 +95,15 @@ void	main_loop(t_shell *shell)
 		if (!*input)
 		{
 			free(input);
-			continue;
+			continue ;
 		}
-		if (g_signal == SIGINT)
-		{
-			shell->exit_status = 130;
-			g_signal = 0;
-			if (shell->ast)
-			{
-				free_ast(shell->ast);
-				shell->ast = NULL;
-			}
-			if (shell->tokens)
-			{
-				free_tokens(shell->tokens);
-				shell->tokens = NULL;
-			}
-			free(input);
-			continue;
-		}
+		if (handle_signal_interrupt(shell, input))
+			continue ;
 		add_to_history(input);
 		handle_input(shell, input);
-		if (g_signal == SIGINT)
-		{
-			write(STDOUT_FILENO, "\n", 1);
-			g_signal = 0;
-			shell->exit_status = 130;
-		}
+		handle_post_execution(shell);
 		free(input);
-		input = NULL;
 		if (shell->should_exit)
 			break ;
-	}
-}
-
-void	cleanup_shell(t_shell *shell)
-{
-	int	i;
-
-	if (shell->tokens)
-	{
-		free_tokens(shell->tokens);
-		shell->tokens = NULL;
-	}
-	if (shell->ast)
-	{
-		free_ast(shell->ast);
-		shell->ast = NULL;
-	}
-	if (shell->env)
-	{
-		i = 0;
-		while (shell->env[i])
-		{
-			free(shell->env[i]);
-			shell->env[i] = NULL;
-			i++;
-		}
-		free(shell->env);
-		shell->env = NULL;
 	}
 }

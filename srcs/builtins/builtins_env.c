@@ -5,8 +5,8 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: tmorais- <tmorais-@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/03/10 17:50:09 by tmorais-          #+#    #+#             */
-/*   Updated: 2026/03/23 18:26:27 by tmorais-         ###   ########.fr       */
+/*   Created: 2026/03/25 15:35:27 by tmorais-          #+#    #+#             */
+/*   Updated: 2026/03/25 15:44:24 by tmorais-         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -25,22 +25,10 @@ int	builtin_env(t_shell *shell)
 	return (0);
 }
 
-static int	env_count(char **env)
-{
-	int	i;
-
-	i = 0;
-	while (env && env[i])
-		i++;
-	return (i);
-}
-
 int	builtin_export_single(char *entry, t_shell *shell)
 {
-	int		i;
 	int		len;
 	char	*eq;
-	char	**new_env;
 
 	if (!entry || !shell)
 		return (1);
@@ -49,117 +37,9 @@ int	builtin_export_single(char *entry, t_shell *shell)
 		len = (int)(eq - entry);
 	else
 		len = (int)ft_strlen(entry);
-	i = 0;
-	while (shell->env && shell->env[i])
-	{
-		if (ft_strncmp(shell->env[i], entry, len) == 0
-			&& (shell->env[i][len] == '=' || shell->env[i][len] == '\0'))
-		{
-			free(shell->env[i]);
-			shell->env[i] = ft_strdup(entry);
-			return (0);
-		}
-		i++;
-	}
-	new_env = malloc(sizeof(char *) * (env_count(shell->env) + 2));
-	if (!new_env)
-		return (1);
-	i = 0;
-	while (shell->env && shell->env[i])
-	{
-		new_env[i] = shell->env[i];
-		i++;
-	}
-	new_env[i] = ft_strdup(entry);
-	new_env[i + 1] = NULL;
-	free(shell->env);
-	shell->env = new_env;
-	return (0);
-}
-
-static int	is_valid_identifier(const char *str)
-{
-	int	i;
-
-	if (!str || !str[0])
+	if (update_existing_env(shell, entry, len))
 		return (0);
-	if (!((str[0] >= 'a' && str[0] <= 'z')
-			|| (str[0] >= 'A' && str[0] <= 'Z') || str[0] == '_'))
-		return (0);
-	i = 1;
-	while (str[i] && str[i] != '=')
-	{
-		if (!((str[i] >= 'a' && str[i] <= 'z')
-				|| (str[i] >= 'A' && str[i] <= 'Z')
-				|| (str[i] >= '0' && str[i] <= '9') || str[i] == '_'))
-			return (0);
-		i++;
-	}
-	return (1);
-}
-
-static int	export_strcmp(const char *a, const char *b)
-{
-	int	ia;
-	int	ib;
-
-	ia = 0;
-	ib = 0;
-	while (a[ia] && a[ia] != '=')
-		ia++;
-	while (b[ib] && b[ib] != '=')
-		ib++;
-	if (ia != ib)
-		return (ft_strncmp(a, b, ia < ib ? ia : ib) != 0
-			? ft_strncmp(a, b, ia < ib ? ia : ib)
-			: ia - ib);
-	return (ft_strncmp(a, b, ia));
-}
-
-static void	print_export_sorted(char **env)
-{
-	int		count;
-	int		i;
-	int		j;
-	char	**sorted;
-	char	*tmp;
-
-	count = 0;
-	while (env && env[count])
-		count++;
-	sorted = malloc(sizeof(char *) * (count + 1));
-	if (!sorted)
-		return ;
-	i = 0;
-	while (i < count)
-	{
-		sorted[i] = env[i];
-		i++;
-	}
-	sorted[count] = NULL;
-	i = 0;
-	while (i < count - 1)
-	{
-		j = i + 1;
-		while (j < count)
-		{
-			if (export_strcmp(sorted[i], sorted[j]) > 0)
-			{
-				tmp = sorted[i];
-				sorted[i] = sorted[j];
-				sorted[j] = tmp;
-			}
-			j++;
-		}
-		i++;
-	}
-	i = 0;
-	while (sorted[i])
-	{
-		printf("declare -x %s\n", sorted[i]);
-		i++;
-	}
-	free(sorted);
+	return (add_new_env(shell, entry));
 }
 
 int	builtin_export(t_command *cmd, t_shell *shell)
@@ -188,35 +68,33 @@ int	builtin_export(t_command *cmd, t_shell *shell)
 	return (0);
 }
 
+void	unset_single(t_shell *shell, char *var)
+{
+	int		j;
+	size_t	len;
+
+	len = ft_strlen(var);
+	j = 0;
+	while (shell->env && shell->env[j])
+	{
+		if (ft_strncmp(shell->env[j], var, len) == 0
+			&& (shell->env[j][len] == '=' || shell->env[j][len] == '\0'))
+		{
+			remove_env_entry(shell, j);
+			break ;
+		}
+		j++;
+	}
+}
+
 int	builtin_unset(t_command *cmd, t_shell *shell)
 {
-	int		i;
-	int		j;
-	int		k;
-	size_t	len;
+	int	i;
 
 	i = 1;
 	while (i < cmd->argc)
 	{
-		len = ft_strlen(cmd->argv[i]);
-		j = 0;
-		while (shell->env && shell->env[j])
-		{
-			if (ft_strncmp(shell->env[j], cmd->argv[i], len) == 0
-				&& (shell->env[j][len] == '=' || shell->env[j][len] == '\0'))
-			{
-				free(shell->env[j]);
-				k = j;
-				while (shell->env[k + 1])
-				{
-					shell->env[k] = shell->env[k + 1];
-					k++;
-				}
-				shell->env[k] = NULL;
-				break ;
-			}
-			j++;
-		}
+		unset_single(shell, cmd->argv[i]);
 		i++;
 	}
 	return (0);

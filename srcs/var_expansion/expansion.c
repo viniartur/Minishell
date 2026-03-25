@@ -6,13 +6,13 @@
 /*   By: tmorais- <tmorais-@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/03/10 18:30:04 by tmorais-          #+#    #+#             */
-/*   Updated: 2026/03/10 18:51:29 by tmorais-         ###   ########.fr       */
+/*   Updated: 2026/03/25 17:07:35 by tmorais-         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "minishell.h"
 
-static char	*int_to_str(int n, int digits)
+char	*int_to_str(int n, int digits)
 {
 	char	*str;
 	int		i;
@@ -29,27 +29,6 @@ static char	*int_to_str(int n, int digits)
 		n /= 10;
 	}
 	return (str);
-}
-
-char	*expand_exit_status(t_shell *shell)
-{
-	int	status;
-	int	temp;
-	int	digits;
-
-	if (!shell)
-		return (ft_strdup("0"));
-	status = shell->exit_status;
-	if (status < 0)
-		status = 255;
-	digits = 1;
-	temp = status;
-	while (temp >= 10)
-	{
-		temp /= 10;
-		digits++;
-	}
-	return (int_to_str(status, digits));
 }
 
 char	*expand_variable(t_shell *shell, const char *str, int *i)
@@ -81,7 +60,7 @@ char	*expand_variable(t_shell *shell, const char *str, int *i)
 	return (result);
 }
 
-static char	*expand_dollar(t_shell *shell, const char *str, int *i)
+static char	*expand_dollar_var(t_shell *shell, const char *str, int *i)
 {
 	char	*expanded;
 	char	*result;
@@ -95,12 +74,20 @@ static char	*expand_dollar(t_shell *shell, const char *str, int *i)
 	return (result);
 }
 
+static char	*append_char(char *result, char c)
+{
+	char	tmp[2];
+
+	tmp[0] = c;
+	tmp[1] = '\0';
+	return (join_strings(result, tmp));
+}
+
 char	*expand_all_variables(t_shell *shell, const char *str)
 {
 	int		i;
 	char	*result;
 	char	*expanded;
-	char	tmp[2];
 
 	if (!str)
 		return (NULL);
@@ -112,16 +99,12 @@ char	*expand_all_variables(t_shell *shell, const char *str)
 	{
 		if (str[i] == '$')
 		{
-			expanded = expand_dollar(shell, str, &i);
+			expanded = expand_dollar_var(shell, str, &i);
 			result = join_strings(result, expanded);
 			free(expanded);
 		}
 		else
-		{
-			tmp[0] = str[i++];
-			tmp[1] = '\0';
-			result = join_strings(result, tmp);
-		}
+			result = append_char(result, str[i++]);
 	}
 	return (result);
 }
